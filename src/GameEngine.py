@@ -113,6 +113,7 @@ class GameEngine:
                 return (turn % 2, turn, turn_result)
             turn += 1
 
+
 if __name__ == '__main__':
     player0 = Player('Player0', 7, 6)
     player1 = Player('Player1', 7, 6)

@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.special import expit
+from scipy.optimize import fmin_cg
+from NNFunctions import wrapped_cost_function, wrapped_back_prop
 
 #Function inputs are:
 #l_in: size of the input layer for the current layer.
@@ -23,8 +25,12 @@ class NeuralNetwork:
 
         # Internal matrix of weights
         if input_layer:
-            self._matrix = init_weight(input_layer.size, size)
-            self._prev_layer = input_layer
+            self.matrix = init_weight(input_layer.size, size)
+            self.prev_layer = input_layer
+        else:
+            self.matrix = None
+            self.prev_layer = None
+
 
     def run(self, input_dict):
         if self.is_placeholder:
@@ -32,29 +38,55 @@ class NeuralNetwork:
             return input_dict[self.name]
 
         # Get the result of the previous layer
-        input_vector = self._prev_layer.run(input_dict)
+        input_vector = self.prev_layer.run(input_dict)
 
         # Concatenate bias value
         full_input_vector = np.concatenate((np.ones((1,)), input_vector))
 
-        # Calculate and return the out vector
-        return expit(np.dot(self._matrix, full_input_vector))
+        # Calculate output vector
+        output_vector = np.dot(self.matrix, full_input_vector)
 
-    def _run_all_partial(self, input_dict):
+        # Return the out vector
+        return expit(output_vector)
+
+    def run_all_partial(self, input_dict):
         if self.is_placeholder:
             # Return the values given in input_dict
-            return [input_dict[self.name]], [input_dict[self.name]]
+            return [np.concatenate((np.ones(1), input_dict[self.name]))]
 
         # Get the result of the previous layer
-        history_z, history_a = self._prev_layer._run_all_partial(input_dict)
+        history = self.prev_layer.run_all_partial(input_dict)
 
-        # Concatenate bias value
-        full_input_vector = np.concatenate((np.ones((1,)), history_a[-1]))
+        # Calculate output vector
+        output_vector = expit(np.dot(self.matrix, history[0]))
+        full_output_vector = np.concatenate((np.ones(1), output_vector))
 
         # Calculate and return the out vector along with the rest of the history
-        history_z.insert(0, np.dot(self._matrix, full_input_vector))
-        history_a.insert(0, expit(history_z[-1]))
-        return history_z, history_a
+        history.insert(0, full_output_vector)
+        return history
+
+
+    def get_weights_as_vector(self):
+        if self.is_placeholder:
+            return np.zeros(0)
+
+        return np.concatenate((self.prev_layer.get_weights_as_vector(), self.matrix.flatten()))
+
+    def set_weights_from_vector(self, weights_vector):
+        if self.is_placeholder:
+            return
+
+        size = self.matrix.size
+        self.matrix[:, :] = weights_vector[-size:].reshape(self.matrix.shape)
+        self.prev_layer.set_weights_from_vector(weights_vector[:-size])
+
+    def learn(self, input_vector, output_vector, iterations=None):
+        xopt = fmin_cg((lambda x: wrapped_cost_function(x, self, [(input_vector, output_vector)])),
+                       self.get_weights_as_vector(),
+                       lambda x: wrapped_back_prop(x, self, input_vector),
+                       maxiter=iterations,
+                       callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])))
+        self.set_weights_from_vector(xopt)
 
 
 def create_placeholder(name, size=1):
@@ -68,7 +100,7 @@ def create_dense_layer(name, size, input_layer):
 def create_const(name, size, const):
     nn = NeuralNetwork(name, size, None, False)
     nn.run = lambda x: np.ones((size,)) * const
-    nn._run_all_partial = lambda x: [np.ones((size,)) * const], [np.ones((size,)) * const]
+    nn.run_all_partial = lambda x: [np.concatenate((np.ones(1), np.ones((size,)) * const))]
     return nn
 
 def add_networks(network1, network2):
@@ -81,24 +113,36 @@ def add_networks(network1, network2):
         return input_vector1 + input_vector2
 
     def _run_all_partial(input_dict):
-        history_z_1, history_a_1 = network1._run_all_partial(input_dict)
-        history_z_2, history_a_2 = network2._run_all_partial(input_dict)
+        history_1 = network1.run_all_partial(input_dict)
+        history_2 = network2.run_all_partial(input_dict)
 
-        out_vector = history_a_1[-1] + history_a_2[-1]
-        history_z_1.extend(history_z_2)
-        history_a_1.extend(history_a_2)
-        history_z_1.append(out_vector)
-        history_a_1.append(out_vector)
+        out_vector = history_1[0][1:] + history_2[0][1:]
+        full_output_vector = np.concatenate((np.ones(1), out_vector))
+        history_1.extend(history_2)
+        history_1.append(full_output_vector)
 
-        return history_z_1, history_a_1
+        return history_1
 
     nn.run = run
-    nn._run_all_partial = _run_all_partial
+    nn.run_all_partial = _run_all_partial
     return nn
 
 
 if __name__ == '__main__':
-    a = create_placeholder('input', 1)
-    b = create_dense_layer('b', 1, a)
+    # a = create_const('a', 3, 3)
+    # b = create_const('b', 3, 2)
+    # c = create_dense_layer('c', 3, b)
 
-    print(b._run_all_partial({'input': np.array([2])}))
+    x = create_placeholder('input', 2)
+    W = create_dense_layer('W', 3, x)
+    out = create_dense_layer('out', 2, W)
+
+    print(out.run({'input': np.array([1, 2])}))
+    print(out.get_weights_as_vector())
+
+    out.learn(np.array([1, 2]), np.array([1, 0]))
+
+    # out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
+
+    print(out.run({'input': np.array([1, 2])}))
+    print(out.get_weights_as_vector())

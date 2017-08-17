@@ -1,37 +1,60 @@
 import numpy as np
-from scipy.special import expit
-#Function inputs are:
-#l_in: size of the input layer for the current layer.
-#l_out: size of the output layer for the current layer.
-#returns random weights matrix
+
+
+# Function inputs are:
+# l_in: size of the input layer for the current layer.
+# l_out: size of the output layer for the current layer.
+# returns random weights matrix
 def init_weight (l_in, l_out):
     epsilon_init = np.sqrt(6) / (np.sqrt(l_in + l_out))
     weights = np.random.rand(l_out, 1 + l_in) * 2 * epsilon_init - epsilon_init
     return weights
 
-# Suppose to be back prog
-def back_prop (self, input_dic):
-    a, z = _run_all_partial(input_dic)
-    lambda_vec = [None] * (len(a)-1)
-    delta_vec = [None] * (len(a)-1)
-    grad_vec = [None] * (len(a)-1)
-    y = np.zeros(len(a[0]))
-    y[np.argmax(a[0])] = 1
-    lambda_vec[0] = np.array(a[0]) - y
-    current_layer = self._prev_layer
-    for k in range(lambda_vec[1:].size):
-        lambda_vec[k+1] = np.multiply((lambda_vec[k]*current_layer._matrix), np.multiply(expit(z[k+1]), 1-expit(z[k+1])))
-        lambda_vec[k+1] = lambda_vec[k+1][1:]
-        delta_vec[k] = lambda_vec[k+1]*np.matrix.transpose(a[k])
-        grad_vec[k] = (1 / len(input_dic)) * delta_vec[k]
-    return grad_vec
 
 # Function gets set of training examples and returns the cost function
 def cost_function(nn, data_set):
     j = 0
     for input_vec, output in data_set:
-        run_res = nn.run(input_vec)
+        run_res = nn.run({'input': input_vec})
         for k in range(input_vec.size):
             j += -output[k]*np.log(run_res[k]) + (1-output[k])*np.log(run_res[k])
     j *= (1/len(data_set))
     return j
+
+
+def wrapped_cost_function(weights, nn, dataset):
+    nn.set_weights_from_vector(weights)
+    return cost_function(nn, dataset)
+
+
+def sigmoid_direvative_with_bias(vec):
+    out_vec = vec * (1 - vec)
+    out_vec[0] = 1
+    return out_vec
+
+
+# Suppose to be back prog
+def back_prop(nn, input_dict):
+    a = nn.run_all_partial(input_dict)
+    y = np.zeros(a[0].shape)
+    y[np.argmax(a[0][1:]) + 1] = 1
+    delta_vec_prev = a[0] - y
+    curr_layer = nn
+    d = []
+    for k in range(1, len(a) - 1):
+        delta_vec_next = np.dot(np.transpose(nn.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
+        d.append(np.outer(delta_vec_prev, a[k])[1:])
+        delta_vec_prev = delta_vec_next
+        curr_layer = curr_layer.prev_layer
+    else:
+        d.append(np.outer(delta_vec_prev, a[-1])[1:])
+
+    return d
+
+def wrapped_back_prop(x, nn, input_vector):
+    nn.set_weights_from_vector(x)
+    d = back_prop(nn, {'input': input_vector})
+    grad = np.zeros(0)
+    for layer_d in d:
+        grad = np.concatenate((layer_d.flatten(), grad))
+    return grad

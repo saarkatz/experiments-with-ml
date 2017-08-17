@@ -21,8 +21,9 @@ class NeuralNetwork:
             self.placeholders.append(name)
 
         # internal matrix of weights
-        self._matrix = np.zeros(shape=(size, input_layer.size), dtype=np.float32)
-        self._prev_layer = input_layer
+        if input_layer:
+            self._matrix = np.zeros(shape=(size, input_layer.size), dtype=np.float32)
+            self._prev_layer = input_layer
 
 
 def create_placeholder(name, size=1):

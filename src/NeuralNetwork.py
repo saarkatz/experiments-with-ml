@@ -20,10 +20,33 @@ class NeuralNetwork:
         if is_placeholder:
             self.placeholders.append(name)
 
-        # internal matrix of weights
+        # Internal matrix of weights
         if input_layer:
-            self._matrix = np.zeros(shape=(size, input_layer.size), dtype=np.float32)
+            self._matrix = init_weight(input_layer.size, size)
             self._prev_layer = input_layer
+
+    def run(self, input_dict):
+        if self.is_placeholder:
+            # Return the values given in input_dict
+            return input_dict[self.name]
+
+        # Get the result of the previous layer
+        input_vector = self._prev_layer.run(input_dict)
+
+        # Calculate and return the out vector
+        return np.dot(self._matrix, input_vector)
+
+    def _run_all_partial(self, input_dict):
+        if self.is_placeholder:
+            # Return the values given in input_dict
+            return [input_dict[self.name]]
+
+        # Get the result of the previous layer
+        history = self._prev_layer.run(input_dict)
+
+        # Calculate and return the out vector along with the rest of the history
+        history.append(np.dot(self._matrix, history[-1]))
+        return history
 
 
 def create_placeholder(name, size=1):
@@ -33,4 +56,5 @@ def create_placeholder(name, size=1):
 def create_dense_layer(name, size, input_layer):
     return NeuralNetwork(name, size, input_layer, False)
 
-
+def create_const(name, size):
+    

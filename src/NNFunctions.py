@@ -16,7 +16,7 @@ def cost_function(nn, data_set):
     j = 0
     for input_vec, output in data_set:
         run_res = nn.run({'input': input_vec})
-        for k in range(input_vec.size):
+        for k in range(run_res.size):
             j += -output[k]*np.log(run_res[k]) + (1-output[k])*np.log(run_res[k])
     j *= (1/len(data_set))
     return j
@@ -42,7 +42,7 @@ def back_prop(nn, input_dict):
     curr_layer = nn
     d = []
     for k in range(1, len(a) - 1):
-        delta_vec_next = np.dot(np.transpose(nn.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
+        delta_vec_next = np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
         d.append(np.outer(delta_vec_prev, a[k])[1:])
         delta_vec_prev = delta_vec_next
         curr_layer = curr_layer.prev_layer

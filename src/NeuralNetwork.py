@@ -3,14 +3,16 @@ from scipy.special import expit
 from scipy.optimize import fmin_cg
 from NNFunctions import wrapped_cost_function, wrapped_back_prop
 
-#Function inputs are:
-#l_in: size of the input layer for the current layer.
-#l_out: size of the output layer for the current layer.
-#returns random weights matrix
-def init_weight (l_in, l_out):
+
+# Function inputs are:
+# l_in: size of the input layer for the current layer.
+# l_out: size of the output layer for the current layer.
+# returns random weights matrix
+def init_weight(l_in, l_out):
     epsilon_init = np.sqrt(6) / (np.sqrt(l_in + l_out))
     weights = np.random.rand(l_out, 1 + l_in) * 2 * epsilon_init - epsilon_init
     return weights
+
 
 class NeuralNetwork:
     def __init__(self, name, size, input_layer=None, is_placeholder=False):
@@ -30,7 +32,6 @@ class NeuralNetwork:
         else:
             self.matrix = None
             self.prev_layer = None
-
 
     def run(self, input_dict):
         if self.is_placeholder:
@@ -64,7 +65,6 @@ class NeuralNetwork:
         # Calculate and return the out vector along with the rest of the history
         history.insert(0, full_output_vector)
         return history
-
 
     def get_weights_as_vector(self):
         if self.is_placeholder:
@@ -103,8 +103,10 @@ def create_const(name, size, const):
     nn.run_all_partial = lambda x: [np.concatenate((np.ones(1), np.ones((size,)) * const))]
     return nn
 
+
 def add_networks(network1, network2):
     nn = NeuralNetwork('+', network1.size, None, False)
+
     def run(input_dict):
         # Get the result of the previous layer
         input_vector1 = network1.run(input_dict)
@@ -133,16 +135,26 @@ if __name__ == '__main__':
     # b = create_const('b', 3, 2)
     # c = create_dense_layer('c', 3, b)
 
-    x = create_placeholder('input', 2)
-    W = create_dense_layer('W', 3, x)
-    out = create_dense_layer('out', 2, W)
+    x = create_placeholder('input', 6 * 7)
+    W1 = create_dense_layer('W1', 50, x)
+    W2 = create_dense_layer('W2', 50, W1)
+    out = create_dense_layer('out', 7, W2)
 
-    print(out.run({'input': np.array([1, 2])}))
-    print(out.get_weights_as_vector())
+    input_vector = np.array([[0, 0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0, 0],
+                             [0, 0, 0, 0, 0, 0]]).flatten()
+    output_vector = np.array([0, 0, 0, 1, 0, 0, 0])
 
-    out.learn(np.array([1, 2]), np.array([1, 0]))
+    print(out.run({'input': input_vector}))
+    # print(out.get_weights_as_vector())
+
+    out.learn(input_vector, output_vector, iterations=1)
 
     # out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
 
-    print(out.run({'input': np.array([1, 2])}))
-    print(out.get_weights_as_vector())
+    print(out.run({'input': input_vector}))
+    # print(out.get_weights_as_vector())

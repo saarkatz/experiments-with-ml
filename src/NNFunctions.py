@@ -9,6 +9,7 @@ def init_weight (l_in, l_out):
     weights = np.random.rand(l_out, 1 + l_in) * 2 * epsilon_init - epsilon_init
     return weights
 
+# Suppose to be back prog
 def back_prop (self, input_dic):
     a, z = _run_all_partial(input_dic)
     lambda_vec = [None] * (len(a)-1)

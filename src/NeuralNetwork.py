@@ -57,4 +57,4 @@ def create_dense_layer(name, size, input_layer):
     return NeuralNetwork(name, size, input_layer, False)
 
 def create_const(name, size):
-    
+    pass

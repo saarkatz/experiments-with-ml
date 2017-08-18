@@ -14,11 +14,12 @@ def init_weight (l_in, l_out):
 # Function gets set of training examples and returns the cost function
 def cost_function(nn, data_set):
     j = 0
+    m = len(data_set)
     for input_vec, output in data_set:
         run_res = nn.run({'input': input_vec})
         for k in range(input_vec.size):
-            j += -output[k]*np.log(run_res[k]) + (1-output[k])*np.log(run_res[k])
-    j *= (1/len(data_set))
+            j += -output[k]*np.log(run_res[k]) - (1-output[k])*np.log(run_res[k])
+    j = j* (1/m)
     return j
 
 

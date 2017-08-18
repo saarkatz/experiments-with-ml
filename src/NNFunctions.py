@@ -12,14 +12,23 @@ def init_weight (l_in, l_out):
 
 
 # Function gets set of training examples and returns the cost function
-def cost_function(nn, data_set):
+def cost_function(nn, data_set, lambda_reg = 0.5):
     j = 0
     m = len(data_set)
     for input_vec, output in data_set:
         run_res = nn.run({'input': input_vec})
         for k in range(input_vec.size):
             j += output[k]*np.log(run_res[k]) + (1-output[k])*np.log(1-run_res[k])
-    j = j * (-1/m)
+    j *= (-1/m)
+    current_layer = nn
+    regularization = 0
+    while not current_layer.is_placeholder:
+        theta_vec = current_layer.matrix.flatten()
+        for k in (1, theta_vec.size-1):
+            regularization += np.power(theta_vec[k], 2)
+        current_layer = current_layer.prev_layer
+    regularization *= lambda_reg / (2 * m)
+    j += regularization
     return j
 
 

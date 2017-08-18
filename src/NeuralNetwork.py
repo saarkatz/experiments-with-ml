@@ -80,7 +80,7 @@ class NeuralNetwork:
         self.matrix[:, :] = weights_vector[-size:].reshape(self.matrix.shape)
         self.prev_layer.set_weights_from_vector(weights_vector[:-size])
 
-    def learn(self, input_vector, output_vector, iterations=None):
+    def learn(self, input_vector, output_vector, iterations=1):
         xopt = fmin_cg((lambda x: wrapped_cost_function(x, self, [(input_vector, output_vector)])),
                        self.get_weights_as_vector(),
                        lambda x: wrapped_back_prop(x, self, input_vector),

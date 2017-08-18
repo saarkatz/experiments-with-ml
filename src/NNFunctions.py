@@ -43,12 +43,12 @@ def sigmoid_direvative_with_bias(vec):
     return out_vec
 
 
-# Suppose to be back prog
-def back_prop(nn, input_dict):
-    a = nn.run_all_partial(input_dict)
-    y = np.zeros(a[0].shape)
-    y[np.argmax(a[0][1:]) + 1] = 1
-    delta_vec_prev = a[0] - y
+# Suppose to be back prop
+def back_prop(nn, data_set):
+    a = nn.run_all_partial({'input': data_set[0][0]})
+    y = data_set[0][1]
+    y = np.concatenate((np.ones(1), y))
+    delta_vec_prev = a[0]-y
     curr_layer = nn
     d = []
     for k in range(1, len(a) - 1):
@@ -62,30 +62,25 @@ def back_prop(nn, input_dict):
     return d
 
 
-def wrapped_back_prop(x, nn, input_vector):
+def wrapped_back_prop(x, nn, data_set):
     nn.set_weights_from_vector(x)
-    d = back_prop(nn, {'input': input_vector})
+    d = back_prop(nn, data_set)
     grad = np.zeros(0)
     for layer_d in d:
         grad = np.concatenate((layer_d.flatten(), grad))
     return grad
 
 
-def compute_numerical_gradient(nn, data_set):
-    current_layer = nn
-    grad = []
+def compute_numerical_gradient(x, nn, data_set):
     e = 1e-4
-    while not current_layer.is_placeholder:
-        curr_weights = current_layer.matrix.flatten()
-        peturb = np.zeros(curr_weights.size)
-        curr_grad = np.zeros(curr_weights.size)
-        for k in range(curr_weights.size):
-            peturb[k] = e
-            loss1 = wrapped_cost_function(curr_weights - peturb, nn, data_set)
-            loss2 = wrapped_cost_function(curr_weights + peturb, nn, data_set)
-            curr_grad[k] = (loss2 - loss1) / (2*e)
-            peturb[k] = 0
-        grad.insert(0, curr_grad)
+    peturb = np.zeros(x.size)
+    grad = np.zeros(x.size)
+    for k in range(x.size):
+        peturb[k] = e
+        loss1 = wrapped_cost_function(x - peturb, nn, data_set)
+        loss2 = wrapped_cost_function(x + peturb, nn, data_set)
+        grad[k] = (loss2 - loss1) / (2*e)
+        peturb[k] = 0
     return grad
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import expit
 from scipy.optimize import fmin_cg
-from NNFunctions import wrapped_cost_function, wrapped_back_prop
+from NNFunctions import wrapped_cost_function, wrapped_back_prop, compute_numerical_gradient, check_gradients
 
 
 # Function inputs are:
@@ -83,7 +83,7 @@ class NeuralNetwork:
     def learn(self, input_vector, output_vector, iterations=None):
         xopt = fmin_cg((lambda x: wrapped_cost_function(x, self, [(input_vector, output_vector)])),
                        self.get_weights_as_vector(),
-                       lambda x: wrapped_back_prop(x, self, input_vector),
+                       lambda x: wrapped_back_prop(x, self, [(input_vector, output_vector)]),
                        maxiter=iterations,
                        callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])))
         self.set_weights_from_vector(xopt)
@@ -142,8 +142,8 @@ if __name__ == '__main__':
     # c = create_dense_layer('c', 3, b)
 
     x = create_placeholder('input', 6 * 7)
-    W1 = create_dense_layer('W1', 50, x)
-    W2 = create_dense_layer('W2', 50, W1)
+    W1 = create_dense_layer('W1', 5, x)
+    W2 = create_dense_layer('W2', 5, W1)
     out = create_dense_layer('out', 7, W2)
 
     input_vector = np.array([[0, 0, 0, 0, 0, 0],
@@ -164,4 +164,7 @@ if __name__ == '__main__':
 
     print(out.run({'input': input_vector}))
     print(out.get_weights_as_vector())
+
+    # check gradients
+    check_gradients(compute_numerical_gradient(out.get_weights_as_vector(), out, [(input_vector, output_vector)]), wrapped_back_prop(out.get_weights_as_vector(), out, [(input_vector, output_vector)]))
 

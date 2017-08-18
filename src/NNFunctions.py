@@ -18,8 +18,8 @@ def cost_function(nn, data_set):
     for input_vec, output in data_set:
         run_res = nn.run({'input': input_vec})
         for k in range(input_vec.size):
-            j += -output[k]*np.log(run_res[k]) - (1-output[k])*np.log(run_res[k])
-    j = j* (1/m)
+            j += output[k]*np.log(run_res[k]) + (1-output[k])*np.log(1-run_res[k])
+    j = j * (-1/m)
     return j
 
 

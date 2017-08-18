@@ -146,3 +146,4 @@ if __name__ == '__main__':
 
     print(out.run({'input': np.array([1, 2])}))
     print(out.get_weights_as_vector())
+

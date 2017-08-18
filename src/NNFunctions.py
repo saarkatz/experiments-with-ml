@@ -93,3 +93,4 @@ def check_gradients(numeric_grad, back_prop_grad):
     diff = np.linalg.norm(numeric_grad-back_prop_grad) / np.linalg.norm(numeric_grad+back_prop_grad)
     print(diff)
     return
+

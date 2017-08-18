@@ -12,14 +12,14 @@ def init_weight(l_in, l_out):
 
 
 # Function gets set of training examples and returns the cost function
-def cost_function(nn, data_set, lambda_reg=0.5):
+def cost_function(nn, data_set, lambda_reg):
     j = 0
     m = len(data_set)
     for input_vec, output in data_set:
         run_res = nn.run({'input': input_vec})
         for k in range(run_res.size):
-            j += output[k]*np.log(run_res[k]) + (1-output[k])*np.log(1-run_res[k])
-    j *= (-1/m)
+            j -= output[k]*np.log(run_res[k]) + (1-output[k])*np.log(1-run_res[k])
+    j *= 1/m
     current_layer = nn
     regularization = 0
     while not current_layer.is_placeholder:
@@ -33,9 +33,9 @@ def cost_function(nn, data_set, lambda_reg=0.5):
     return j
 
 
-def wrapped_cost_function(weights, nn, dataset):
+def wrapped_cost_function(weights, nn, dataset, lambda_reg):
     nn.set_weights_from_vector(weights)
-    return cost_function(nn, dataset)
+    return cost_function(nn, dataset, lambda_reg)
 
 
 def sigmoid_direvative_with_bias(vec):
@@ -45,38 +45,43 @@ def sigmoid_direvative_with_bias(vec):
 
 
 # Suppose to be back prop
-def back_prop(nn, data_set, lambda_reg=0.5):
-    a = nn.run_all_partial({'input': data_set[0][0]})
-    y = data_set[0][1]
-    y = np.concatenate((np.ones(1), y))
-    delta_vec_prev = a[0]-y
-    curr_layer = nn
-    d = []
-    for k in range(1, len(a) - 1):
-        delta_vec_next = np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
-        curr_delta = np.outer(delta_vec_prev, a[k])[1:]
-        reg_matrix = np.copy(curr_layer.matrix)
-        reg_matrix[:, :1] = 0
-        curr_delta += lambda_reg * reg_matrix
-        d.append(curr_delta)
-        delta_vec_prev = delta_vec_next
-        curr_layer = curr_layer.prev_layer
-    else:
-        curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
-        reg_matrix = np.copy(curr_layer.matrix)
-        reg_matrix[:, :1] = 0
-        curr_delta += lambda_reg * reg_matrix
-        d.append(curr_delta)
+def back_prop(nn, data_set, lambda_reg):
+    layer_matrices = nn.layer_matrices()
+    delta_matrices = [np.zeros(m.shape) for m in layer_matrices]
+    num_layers = nn.num_layers()
+    for input_vector, output_vector in data_set:
+        a = nn.run_all_partial({'input': input_vector})
+        y = np.concatenate((np.ones(1), output_vector))
+        delta_vec_prev = a[0] - y
+        curr_layer = nn
+        for k in range(1, num_layers - 1):
+            curr_delta = np.outer(delta_vec_prev, a[k])[1:]
+            delta_matrices[-k] += curr_delta
 
-    return d
+            delta_vec_next = \
+                np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
+            delta_vec_prev = delta_vec_next
+            curr_layer = curr_layer.prev_layer
+        else:
+            curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
+            delta_matrices[0] += curr_delta
+
+        # Add regularization term
+        for layer_matrix, delta_matrix in zip(layer_matrices, delta_matrices):
+            delta_matrix /= len(data_set)
+            reg_matrix = np.copy(layer_matrix)
+            reg_matrix[:, :1] = 0
+            delta_matrix += lambda_reg * reg_matrix
+
+    return delta_matrices
 
 
-def wrapped_back_prop(x, nn, data_set):
+def wrapped_back_prop(x, nn, data_set, lambda_reg):
     nn.set_weights_from_vector(x)
-    d = back_prop(nn, data_set)
+    d = back_prop(nn, data_set, lambda_reg)
     grad = np.zeros(0)
     for layer_d in d:
-        grad = np.concatenate((layer_d.flatten(), grad))
+        grad = np.concatenate((grad, layer_d.flatten()))
     return grad
 
 
@@ -102,5 +107,3 @@ def check_gradients(numeric_grad, back_prop_grad):
 def learning_curve(input_vec, output_vec, weights, nn):
     error_train = wrapped_cost_function(weights, nn, [(input_vec, output_vec)])
     return error_train
-
-

@@ -33,6 +33,20 @@ class NeuralNetwork:
             self.matrix = None
             self.prev_layer = None
 
+    def num_layers(self):
+        if self.is_placeholder:
+            return 1
+
+        return 1 + self.prev_layer.num_layers()
+
+    def layer_matrices(self):
+        if self.is_placeholder:
+            return []
+
+        prev_matrices = self.prev_layer.layer_matrices()
+        prev_matrices.append(self.matrix)
+        return prev_matrices
+
     def run(self, input_dict):
         if self.is_placeholder:
             # Return the values given in input_dict
@@ -80,14 +94,23 @@ class NeuralNetwork:
         self.matrix[:, :] = weights_vector[-size:].reshape(self.matrix.shape)
         self.prev_layer.set_weights_from_vector(weights_vector[:-size])
 
-    def learn(self, input_vector, output_vector, iterations=None):
-        xopt = fmin_cg((lambda x: wrapped_cost_function(x, self, [(input_vector, output_vector)])),
+    def learn(self, data_set, iterations=None, lambda_reg=0.5, disp=False):
+        xopt = fmin_cg((lambda x: wrapped_cost_function(x, self, data_set, lambda_reg)),
                        self.get_weights_as_vector(),
-                       lambda x: wrapped_back_prop(x, self, [(input_vector, output_vector)]),
+                       lambda x: wrapped_back_prop(x, self, data_set, lambda_reg),
                        maxiter=iterations,
-                       #callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])),
-                       disp=True)
+                       # callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])),
+                       disp=disp)
         self.set_weights_from_vector(xopt)
+
+    # def unlearn(self, input_vector, output_vector, iterations=None):
+    #     xopt = fmin_cg((lambda x: -wrapped_cost_function(x, self, [(input_vector, output_vector)])),
+    #                    self.get_weights_as_vector(),
+    #                    lambda x: -wrapped_back_prop(x, self, [(input_vector, output_vector)]),
+    #                    maxiter=iterations,
+    #                    # callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])),
+    #                    disp=False)
+    #     self.set_weights_from_vector(xopt)
 
     def save(self, path):
         np.save(path, self.get_weights_as_vector())
@@ -143,8 +166,8 @@ if __name__ == '__main__':
     # c = create_dense_layer('c', 3, b)
 
     x = create_placeholder('input', 6 * 7)
-    W1 = create_dense_layer('W1', 1, x)
-    W2 = create_dense_layer('W2', 2, W1)
+    W1 = create_dense_layer('W1', 50, x)
+    W2 = create_dense_layer('W2', 50, W1)
     out = create_dense_layer('out', 7, W2)
 
     input_vector = np.array([[0, 0, 0, 0, 0, 0],
@@ -156,16 +179,20 @@ if __name__ == '__main__':
                              [0, 0, 0, 0, 0, 0]]).flatten()
     output_vector = np.array([0, 0, 0, 1, 0, 0, 0])
 
+    data_set = [(input_vector, output_vector)]
+
     print(out.run({'input': input_vector}))
     print(out.get_weights_as_vector())
 
-    out.learn(input_vector, output_vector, iterations=None)
+    print(wrapped_cost_function(out.get_weights_as_vector(), out, data_set, 0.5))
+
+    out.learn(data_set, iterations=None)
 
     #out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
 
-    print(out.run({'input': input_vector}))
-    print(out.get_weights_as_vector())
+    # print(out.run({'input': input_vector}))
+    # print(out.get_weights_as_vector())
 
     # check gradients
-    check_gradients(compute_numerical_gradient(out.get_weights_as_vector(), out, [(input_vector, output_vector)]), wrapped_back_prop(out.get_weights_as_vector(), out, [(input_vector, output_vector)]))
+    # check_gradients(compute_numerical_gradient(out.get_weights_as_vector(), out, [(input_vector, output_vector)]), wrapped_back_prop(out.get_weights_as_vector(), out, [(input_vector, output_vector)]))
 

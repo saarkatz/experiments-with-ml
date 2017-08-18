@@ -1,4 +1,6 @@
+from NeuralNetwork import create_dense_layer, create_placeholder
 from Player import Player
+from AiAgent1 import AiAgent
 import numpy as np
 import time
 
@@ -115,7 +117,12 @@ class GameEngine:
 
 
 if __name__ == '__main__':
-    player0 = Player('Player0', 7, 6)
+    x = create_placeholder('input', 6 * 7)
+    W1 = create_dense_layer('W1', 50, x)
+    W2 = create_dense_layer('W2', 50, W1)
+    out = create_dense_layer('out', 7, W2)
+
+    player0 = AiAgent('Player0', 7, 6, out)
     player1 = Player('Player1', 7, 6)
     ge = GameEngine(7, 6, 4, player0, player1, 60000)
     ge.init()

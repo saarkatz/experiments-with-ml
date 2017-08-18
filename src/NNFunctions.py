@@ -20,15 +20,16 @@ def cost_function(nn, data_set, lambda_reg=0.5):
         for k in range(run_res.size):
             j += output[k]*np.log(run_res[k]) + (1-output[k])*np.log(1-run_res[k])
     j *= (-1/m)
-    #current_layer = nn
-    #regularization = 0
-    #while not current_layer.is_placeholder:
-    #    theta_vec = current_layer.matrix.flatten()
-    #    for k in (1, theta_vec.size-1):
-    #        regularization += np.power(theta_vec[k], 2)
-    #    current_layer = current_layer.prev_layer
-    #regularization *= lambda_reg / (2 * m)
-    #j += regularization
+    current_layer = nn
+    regularization = 0
+    while not current_layer.is_placeholder:
+        weights_vec = np.copy(current_layer.matrix)
+        weights_vec = weights_vec[:, 1:]
+        weights_vec *= weights_vec
+        regularization += sum(sum(weights_vec))
+        current_layer = current_layer.prev_layer
+    regularization *= lambda_reg / (2 * m)
+    j += regularization
     return j
 
 
@@ -54,15 +55,17 @@ def back_prop(nn, data_set, lambda_reg=0.5):
     for k in range(1, len(a) - 1):
         delta_vec_next = np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
         curr_delta = np.outer(delta_vec_prev, a[k])[1:]
-    #    curr_delta += lambda_reg*curr_layer.matrix
+        reg_matrix = np.copy(curr_layer.matrix)
+        reg_matrix[:, :1] = 0
+        curr_delta += lambda_reg * reg_matrix
         d.append(curr_delta)
         delta_vec_prev = delta_vec_next
         curr_layer = curr_layer.prev_layer
     else:
         curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
-     #   reg_matrix = np.copy(curr_layer.matrix)
-     #   reg_matrix[:, :1] = 0
-     #   curr_delta += lambda_reg * reg_matrix
+        reg_matrix = np.copy(curr_layer.matrix)
+        reg_matrix[:, :1] = 0
+        curr_delta += lambda_reg * reg_matrix
         d.append(curr_delta)
 
     return d
@@ -94,4 +97,10 @@ def check_gradients(numeric_grad, back_prop_grad):
     diff = np.linalg.norm(numeric_grad-back_prop_grad) / np.linalg.norm(numeric_grad+back_prop_grad)
     print(diff)
     return
+
+
+def learning_curve(input_vec, output_vec, weights, nn):
+    error_train = wrapped_cost_function(weights, nn, [(input_vec, output_vec)])
+    return error_train
+
 

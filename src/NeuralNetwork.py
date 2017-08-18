@@ -162,11 +162,6 @@ if __name__ == '__main__':
 
     # out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
 
-<<<<<<< HEAD
-    print(out.run({'input': np.array([1, 2])}))
+    print(out.run({'input': input_vector}))
     print(out.get_weights_as_vector())
 
-=======
-    print(out.run({'input': input_vector}))
-    # print(out.get_weights_as_vector())
->>>>>>> 92b9573e0989357d019711469c2d1035f3e67a30

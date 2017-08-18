@@ -20,15 +20,15 @@ def cost_function(nn, data_set, lambda_reg=0.5):
         for k in range(run_res.size):
             j += output[k]*np.log(run_res[k]) + (1-output[k])*np.log(1-run_res[k])
     j *= (-1/m)
-    current_layer = nn
-    regularization = 0
-    while not current_layer.is_placeholder:
-        theta_vec = current_layer.matrix.flatten()
-        for k in (1, theta_vec.size-1):
-            regularization += np.power(theta_vec[k], 2)
-        current_layer = current_layer.prev_layer
-    regularization *= lambda_reg / (2 * m)
-    j += regularization
+    #current_layer = nn
+    #regularization = 0
+    #while not current_layer.is_placeholder:
+    #    theta_vec = current_layer.matrix.flatten()
+    #    for k in (1, theta_vec.size-1):
+    #        regularization += np.power(theta_vec[k], 2)
+    #    current_layer = current_layer.prev_layer
+    #regularization *= lambda_reg / (2 * m)
+    #j += regularization
     return j
 
 
@@ -44,7 +44,7 @@ def sigmoid_direvative_with_bias(vec):
 
 
 # Suppose to be back prop
-def back_prop(nn, data_set):
+def back_prop(nn, data_set, lambda_reg=0.5):
     a = nn.run_all_partial({'input': data_set[0][0]})
     y = data_set[0][1]
     y = np.concatenate((np.ones(1), y))
@@ -53,11 +53,17 @@ def back_prop(nn, data_set):
     d = []
     for k in range(1, len(a) - 1):
         delta_vec_next = np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
-        d.append(np.outer(delta_vec_prev, a[k])[1:])
+        curr_delta = np.outer(delta_vec_prev, a[k])[1:]
+    #    curr_delta += lambda_reg*curr_layer.matrix
+        d.append(curr_delta)
         delta_vec_prev = delta_vec_next
         curr_layer = curr_layer.prev_layer
     else:
-        d.append(np.outer(delta_vec_prev, a[-1])[1:])
+        curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
+     #   reg_matrix = np.copy(curr_layer.matrix)
+     #   reg_matrix[:, :1] = 0
+     #   curr_delta += lambda_reg * reg_matrix
+        d.append(curr_delta)
 
     return d
 

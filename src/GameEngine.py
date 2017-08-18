@@ -106,7 +106,7 @@ class GameEngine:
 
     def run(self, fail_on_timeout=False):
         if not self._initialized == 1:
-            return -1
+            return 0
         turn = 0
         while True:
             turn_result = self._run_turn(self.player0 if turn % 2 == 0 else self.player1, turn, fail_on_timeout)
@@ -121,6 +121,8 @@ if __name__ == '__main__':
     W1 = create_dense_layer('W1', 50, x)
     W2 = create_dense_layer('W2', 50, W1)
     out = create_dense_layer('out', 7, W2)
+
+    out.load('final_net.npy')
 
     player0 = AiAgent('Player0', 7, 6, out)
     player1 = Player('Player1', 7, 6)

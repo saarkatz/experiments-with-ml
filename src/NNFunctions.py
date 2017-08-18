@@ -61,6 +61,7 @@ def back_prop(nn, input_dict):
 
     return d
 
+
 def wrapped_back_prop(x, nn, input_vector):
     nn.set_weights_from_vector(x)
     d = back_prop(nn, {'input': input_vector})

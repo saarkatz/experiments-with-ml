@@ -80,13 +80,19 @@ class NeuralNetwork:
         self.matrix[:, :] = weights_vector[-size:].reshape(self.matrix.shape)
         self.prev_layer.set_weights_from_vector(weights_vector[:-size])
 
-    def learn(self, input_vector, output_vector, iterations=1):
+    def learn(self, input_vector, output_vector, iterations=None):
         xopt = fmin_cg((lambda x: wrapped_cost_function(x, self, [(input_vector, output_vector)])),
                        self.get_weights_as_vector(),
                        lambda x: wrapped_back_prop(x, self, input_vector),
                        maxiter=iterations,
                        callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])))
         self.set_weights_from_vector(xopt)
+
+    def save(self, path):
+        np.save(path, self.get_weights_as_vector())
+
+    def load(self, path):
+        self.set_weights_from_vector(np.load(path))
 
 
 def create_placeholder(name, size=1):
@@ -97,37 +103,37 @@ def create_dense_layer(name, size, input_layer):
     return NeuralNetwork(name, size, input_layer, False)
 
 
-def create_const(name, size, const):
-    nn = NeuralNetwork(name, size, None, False)
-    nn.run = lambda x: np.ones((size,)) * const
-    nn.run_all_partial = lambda x: [np.concatenate((np.ones(1), np.ones((size,)) * const))]
-    return nn
-
-
-def add_networks(network1, network2):
-    nn = NeuralNetwork('+', network1.size, None, False)
-
-    def run(input_dict):
-        # Get the result of the previous layer
-        input_vector1 = network1.run(input_dict)
-        input_vector2 = network2.run(input_dict)
-
-        return input_vector1 + input_vector2
-
-    def _run_all_partial(input_dict):
-        history_1 = network1.run_all_partial(input_dict)
-        history_2 = network2.run_all_partial(input_dict)
-
-        out_vector = history_1[0][1:] + history_2[0][1:]
-        full_output_vector = np.concatenate((np.ones(1), out_vector))
-        history_1.extend(history_2)
-        history_1.append(full_output_vector)
-
-        return history_1
-
-    nn.run = run
-    nn.run_all_partial = _run_all_partial
-    return nn
+# def create_const(name, size, const):
+#     nn = NeuralNetwork(name, size, None, False)
+#     nn.run = lambda x: np.ones((size,)) * const
+#     nn.run_all_partial = lambda x: [np.concatenate((np.ones(1), np.ones((size,)) * const))]
+#     return nn
+#
+#
+# def add_networks(network1, network2):
+#     nn = NeuralNetwork('+', network1.size, None, False)
+#
+#     def run(input_dict):
+#         # Get the result of the previous layer
+#         input_vector1 = network1.run(input_dict)
+#         input_vector2 = network2.run(input_dict)
+#
+#         return input_vector1 + input_vector2
+#
+#     def _run_all_partial(input_dict):
+#         history_1 = network1.run_all_partial(input_dict)
+#         history_2 = network2.run_all_partial(input_dict)
+#
+#         out_vector = history_1[0][1:] + history_2[0][1:]
+#         full_output_vector = np.concatenate((np.ones(1), out_vector))
+#         history_1.extend(history_2)
+#         history_1.append(full_output_vector)
+#
+#         return history_1
+#
+#     nn.run = run
+#     nn.run_all_partial = _run_all_partial
+#     return nn
 
 
 if __name__ == '__main__':
@@ -152,7 +158,7 @@ if __name__ == '__main__':
     print(out.run({'input': input_vector}))
     # print(out.get_weights_as_vector())
 
-    out.learn(input_vector, output_vector, iterations=1)
+    out.learn(input_vector, output_vector, iterations=100)
 
     # out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
 

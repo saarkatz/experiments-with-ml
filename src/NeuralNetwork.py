@@ -85,8 +85,8 @@ class NeuralNetwork:
                        self.get_weights_as_vector(),
                        lambda x: wrapped_back_prop(x, self, [(input_vector, output_vector)]),
                        maxiter=iterations,
-                       callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])),
-                       disp=False)
+                       #callback=lambda x: print(wrapped_cost_function(x, self, [(input_vector, output_vector)])),
+                       disp=True)
         self.set_weights_from_vector(xopt)
 
     def save(self, path):
@@ -143,8 +143,8 @@ if __name__ == '__main__':
     # c = create_dense_layer('c', 3, b)
 
     x = create_placeholder('input', 6 * 7)
-    W1 = create_dense_layer('W1', 5, x)
-    W2 = create_dense_layer('W2', 5, W1)
+    W1 = create_dense_layer('W1', 1, x)
+    W2 = create_dense_layer('W2', 2, W1)
     out = create_dense_layer('out', 7, W2)
 
     input_vector = np.array([[0, 0, 0, 0, 0, 0],
@@ -157,14 +157,14 @@ if __name__ == '__main__':
     output_vector = np.array([0, 0, 0, 1, 0, 0, 0])
 
     print(out.run({'input': input_vector}))
-    # print(out.get_weights_as_vector())
+    print(out.get_weights_as_vector())
 
     out.learn(input_vector, output_vector, iterations=None)
 
-    # out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
+    #out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
 
     print(out.run({'input': input_vector}))
-    # print(out.get_weights_as_vector())
+    print(out.get_weights_as_vector())
 
     # check gradients
     check_gradients(compute_numerical_gradient(out.get_weights_as_vector(), out, [(input_vector, output_vector)]), wrapped_back_prop(out.get_weights_as_vector(), out, [(input_vector, output_vector)]))

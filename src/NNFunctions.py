@@ -5,14 +5,14 @@ import numpy as np
 # l_in: size of the input layer for the current layer.
 # l_out: size of the output layer for the current layer.
 # returns random weights matrix
-def init_weight (l_in, l_out):
+def init_weight(l_in, l_out):
     epsilon_init = np.sqrt(6) / (np.sqrt(l_in + l_out))
     weights = np.random.rand(l_out, 1 + l_in) * 2 * epsilon_init - epsilon_init
     return weights
 
 
 # Function gets set of training examples and returns the cost function
-def cost_function(nn, data_set, lambda_reg = 0.5):
+def cost_function(nn, data_set, lambda_reg=0.5):
     j = 0
     m = len(data_set)
     for input_vec, output in data_set:
@@ -61,10 +61,29 @@ def back_prop(nn, input_dict):
 
     return d
 
+
 def wrapped_back_prop(x, nn, input_vector):
     nn.set_weights_from_vector(x)
     d = back_prop(nn, {'input': input_vector})
     grad = np.zeros(0)
     for layer_d in d:
         grad = np.concatenate((layer_d.flatten(), grad))
+    return grad
+
+
+def compute_numerical_gradient(nn, data_set):
+    current_layer = nn
+    grad = []
+    e = 1e-4
+    while not current_layer.is_placeholder:
+        curr_weights = current_layer.matrix.flatten()
+        peturb = np.zeros(curr_weights.size)
+        curr_grad = np.zeros(curr_weights.size)
+        for k in range(curr_weights.size):
+            peturb[k] = e
+            loss1 = wrapped_cost_function(curr_weights - peturb, nn, data_set)
+            loss2 = wrapped_cost_function(curr_weights + peturb, nn, data_set)
+            curr_grad[k] = (loss2 - loss1) / (2*e)
+            peturb[k] = 0
+        grad.insert(0, curr_grad)
     return grad

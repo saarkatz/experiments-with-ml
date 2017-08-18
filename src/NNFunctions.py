@@ -87,3 +87,9 @@ def compute_numerical_gradient(nn, data_set):
             peturb[k] = 0
         grad.insert(0, curr_grad)
     return grad
+
+
+def check_gradients(numeric_grad, back_prop_grad):
+    diff = np.linalg.norm(numeric_grad-back_prop_grad) / np.linalg.norm(numeric_grad+back_prop_grad)
+    print(diff)
+    return

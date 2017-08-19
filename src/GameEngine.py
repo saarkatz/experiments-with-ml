@@ -1,6 +1,7 @@
 from NeuralNetwork import create_dense_layer, create_placeholder
 from Player import Player
 from AiAgent1 import AiAgent
+from ConstPlayer import ConstPlayer
 import numpy as np
 import time
 
@@ -102,6 +103,8 @@ class GameEngine:
     def init(self):
         self._init_state()
         self.turn_queue = []
+        self.player0.init()
+        self.player1.init()
         self._initialized = 1
 
     def run(self, fail_on_timeout=False):
@@ -118,13 +121,14 @@ class GameEngine:
 
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('W1', 21, x)
-    # w2 = create_dense_layer('W2', 50, w1)
-    out = create_dense_layer('out', 7, w1)
+    w1 = create_dense_layer('W1', 50, x)
+    w2 = create_dense_layer('W2', 50, w1)
+    out = create_dense_layer('out', 7, w2)
 
-    out.load('new_final_net_2.npy')
+    out.load('net_1_4.npy')
 
-    player0 = AiAgent('Player0', 7, 6, out)
+    player0 = AiAgent('Player0', 7, 6, out, print_action=True)
+    # player0 = ConstPlayer('const', 7, 6)
     player1 = Player('Player1', 7, 6)
     ge = GameEngine(7, 6, 4, player0, player1, 60000)
     ge.init()

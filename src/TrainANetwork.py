@@ -11,14 +11,22 @@ from NeuralNetwork import create_placeholder, create_dense_layer
 def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
               callback=(lambda x, y, z: print(x) if x % 100 == 0 else None), opponent=None):
     player0 = AiAgent('Player0', 7, 6, nn)
+    multiple_opponents = isinstance(opponent, list)
     if opponent:
-        player1 = opponent
+        if not multiple_opponents:
+            player1 = opponent
+        else:
+            player1 = None
     else:
         player1 = player0
 
     engine = GameEngine(7, 6, 4, player0, player1, 500)
 
     for i in range(num_games):
+        if multiple_opponents:
+            # Randomize the opponent
+            player1 = np.random.choice(opponent)
+
         # Randomize the players
         is_second = np.random.randint(0, 2)
         if is_second:
@@ -101,32 +109,30 @@ def test_net(nn, opponent):
 
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('w1', 50, x)
-    w2 = create_dense_layer('w2', 50, w1)
+    w1 = create_dense_layer('w1', 3 * 7, x, has_bias=False)
+    w2 = create_dense_layer('w2', 2 * 7, w1, has_bias=False)
     out = create_dense_layer('out', 7, w2)
 
     x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('w1', 21, x)
-    w2 = create_dense_layer('w2', 14, w1)
-    opponent_nn = create_dense_layer('out', 7, w2)
+    opponent_nn = create_dense_layer('out', 7, x)
     rand_opponent = AiAgent('rand_opponent', 7, 6, opponent_nn, use_prob=True)
     const_opponent = ConstPlayer('const_opponent', 7, 6)
     opponent = MinPlayer('opponent', 7, 6)
 
-    out.load('net_1_1.npy')
+    # out.load('net_1_1.npy')
 
     test_net(out, opponent)
     test_net(out, rand_opponent)
     test_net(out, const_opponent)
 
-    count = 2
+    count = 0
     iterations = 50000
     while True:
         # opponent.nn.set_weights_from_vector(out.get_weights_as_vector())
-        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=0,
+        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=0.5,
                   callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 1000, y, z),
-                  opponent=opponent)
-        out.save('net_1_{0}.npy'.format(count))
+                  opponent=opponent)  # [opponent, rand_opponent, const_opponent])
+        out.save('net_nb_lambda0_5_2_{0}.npy'.format(count))
         test_net(out, opponent)
         test_net(out, rand_opponent)
         test_net(out, const_opponent)

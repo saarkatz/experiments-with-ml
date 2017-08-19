@@ -20,7 +20,7 @@ class AiAgent:
 
     @staticmethod
     def _raw_to_prob(action):
-        a = AiAgent._boltzmann_value(action, 0.2)
+        a = AiAgent._boltzmann_value(action, 1)
         a = a/sum(a)
         return a
 
@@ -33,4 +33,5 @@ class AiAgent:
         action = np.zeros(action_out.shape)
         action[np.random.choice(len(action_out), p=action_prob)] = 1
         print(repr(action_out))
+        print(repr(action_prob))
         return action

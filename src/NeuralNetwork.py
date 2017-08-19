@@ -157,7 +157,6 @@ if __name__ == '__main__':
     # b = create_const('b', 3, 2)
     # c = create_dense_layer('c', 3, b)
 
-
     input_vector = np.array([[0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0],

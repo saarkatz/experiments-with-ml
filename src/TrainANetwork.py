@@ -3,10 +3,13 @@ import numpy as np
 
 from GameEngine import GameEngine
 from AiAgent1 import AiAgent
+from ConstPlayer import ConstPlayer
+from MinPlayer import MinPlayer
 from NeuralNetwork import create_placeholder, create_dense_layer
 
 
-def train_net(nn, num_games, callback=(lambda x, y, z: print(x) if x % 100 == 0 else None), opponent=None):
+def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
+              callback=(lambda x, y, z: print(x) if x % 100 == 0 else None), opponent=None):
     player0 = AiAgent('Player0', 7, 6, nn)
     if opponent:
         player1 = opponent
@@ -34,21 +37,29 @@ def train_net(nn, num_games, callback=(lambda x, y, z: print(x) if x % 100 == 0 
 
         # Call callback
         if callback:
-            if is_second:
-                callback(i + 1, result, player1)
-            else:
-                callback(i + 1, result, player0)
+            callback(i + 1, result, player0)
 
         # Get outcome
         reward = result[2] if result[0] == is_second else -result[2]
         if reward < 0:
-            reward *= 6e-2
+            if result[2] < 0:
+                reward *= 1e-1
+                gamma *= 0.1
+            else:
+                reward *= 1e-2
 
         # Get data set
         data_set = [(x[2].flatten(), x[3]) for x in turn_queue if x[0] % 2 == is_second]
 
+        # Calculate backward reward
+        running_reward = reward
+        back_reward = [running_reward]
+        for _ in range(len(data_set) - 1):
+            back_reward.append(back_reward[-1] * gamma)
+
         # Teach the network to take the good actions
-        engine.player0.nn.learn(data_set, reward=reward)
+        for pair, r in zip(data_set, reversed(back_reward)):
+            player0.nn.learn([pair], learn_rate=learn_rate, reward=r, lambda_reg=lambda_reg)
 
     return nn
 
@@ -67,17 +78,60 @@ def save_check_point(step, file_name, save_rate, message_rate, game_result, ai_a
         ai_agent.nn.save(file_name)
 
 
+def test_net(nn, opponent):
+    engine = GameEngine(7, 6, 4, None, None, 60000)
+    player0 = AiAgent('nn', 7, 6, nn)
+
+    wins = 0
+    games = 1000
+    for i in range(games):
+        is_second = np.random.randint(0, 2)
+        if is_second:
+            engine.player0, engine.player1 = opponent, player0
+        else:
+            engine.player0, engine.player1 = player0, opponent
+
+        engine.init()
+        result = engine.run()
+        reward = result[2] if result[0] == is_second else -result[2]
+        if reward > 0:
+            wins += 1
+    print(wins/games)
+
+
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('W1', 21, x)
-    w2 = create_dense_layer('W2', 14, w1)
-    out = create_dense_layer('out', 7, w1)
+    w1 = create_dense_layer('w1', 50, x)
+    w2 = create_dense_layer('w2', 50, w1)
+    out = create_dense_layer('out', 7, w2)
 
-    # out.load('new_final_net_2.npy')
-    count = 0
-    iterations = 20000
+    x = create_placeholder('input', 6 * 7)
+    w1 = create_dense_layer('w1', 21, x)
+    w2 = create_dense_layer('w2', 14, w1)
+    opponent_nn = create_dense_layer('out', 7, w2)
+    rand_opponent = AiAgent('rand_opponent', 7, 6, opponent_nn, use_prob=True)
+    const_opponent = ConstPlayer('const_opponent', 7, 6)
+    opponent = MinPlayer('opponent', 7, 6)
+
+    out.load('net_1_1.npy')
+
+    test_net(out, opponent)
+    test_net(out, rand_opponent)
+    test_net(out, const_opponent)
+
+    count = 2
+    iterations = 50000
     while True:
-        train_net(out, iterations,
-                  callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 100, y, z))
-        out.save('new_final_net_2.npy')
+        # opponent.nn.set_weights_from_vector(out.get_weights_as_vector())
+        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=0,
+                  callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 1000, y, z),
+                  opponent=opponent)
+        out.save('net_1_{0}.npy'.format(count))
+        test_net(out, opponent)
+        test_net(out, rand_opponent)
+        test_net(out, const_opponent)
         count += 1
+        # if count >= 1:
+        #     break
+
+

@@ -118,11 +118,11 @@ class GameEngine:
 
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    W1 = create_dense_layer('W1', 50, x)
-    W2 = create_dense_layer('W2', 50, W1)
-    out = create_dense_layer('out', 7, W2)
+    w1 = create_dense_layer('W1', 21, x)
+    # w2 = create_dense_layer('W2', 50, w1)
+    out = create_dense_layer('out', 7, w1)
 
-    out.load('final_net.npy')
+    out.load('new_final_net_2.npy')
 
     player0 = AiAgent('Player0', 7, 6, out)
     player1 = Player('Player1', 7, 6)

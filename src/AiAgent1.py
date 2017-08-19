@@ -20,7 +20,7 @@ class AiAgent:
 
     @staticmethod
     def _raw_to_prob(action):
-        a = AiAgent._boltzmann_value(action, 1)
+        a = AiAgent._boltzmann_value(action, 0.5)
         a = a/sum(a)
         return a
 

@@ -94,15 +94,15 @@ class NeuralNetwork:
         self.matrix[:, :] = weights_vector[-size:].reshape(self.matrix.shape)
         self.prev_layer.set_weights_from_vector(weights_vector[:-size])
 
-    def learn(self, data_set, learn_rate=1e-3, lambda_reg=0.5):
+    def learn(self, data_set, learn_rate=1e-3, reward=1.0, lambda_reg=0.5):
         grad_matrices = back_prop(self, data_set, lambda_reg)
         for layer, grad in zip(self.layer_matrices(), grad_matrices):
-            layer -= learn_rate * grad
+            layer -= learn_rate * reward * grad
 
-    def unlearn(self, data_set, learn_rate=1e-3, lambda_reg=0.5):
+    def unlearn(self, data_set, learn_rate=1e-3, reward=1.0, lambda_reg=0.5):
         grad_matrices = back_prop(self, data_set, lambda_reg)
         for layer, grad in zip(self.layer_matrices(), grad_matrices):
-            layer += learn_rate * grad
+            layer += learn_rate * reward * grad
 
     def save(self, path):
         np.save(path, self.get_weights_as_vector())
@@ -157,10 +157,6 @@ if __name__ == '__main__':
     # b = create_const('b', 3, 2)
     # c = create_dense_layer('c', 3, b)
 
-    x = create_placeholder('input', 6 * 7)
-    W1 = create_dense_layer('W1', 50, x)
-    W2 = create_dense_layer('W2', 50, W1)
-    out = create_dense_layer('out', 7, W2)
 
     input_vector = np.array([[0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0],
@@ -173,12 +169,27 @@ if __name__ == '__main__':
 
     data_set = [(input_vector, output_vector)]
 
+    # print(out.run({'input': input_vector}))
+    # print(out.get_weights_as_vector())
+
+    # print(wrapped_cost_function(out.get_weights_as_vector(), out, data_set, 0.5))
+
+    vec = np.zeros(11)
+    for j in range(10):
+        x = create_placeholder('input', 6 * 7)
+        w1 = create_dense_layer('W1', 3 * 7, x)
+        w2 = create_dense_layer('W2', 2 * 7, w1)
+        out = create_dense_layer('out', 7, w2)
+
+        for i in range(0, 10001):
+            out.learn(data_set, reward=-1e-1, lambda_reg=0.1)
+            if i % 1000 == 0:
+                result = out.run({'input': input_vector})
+                # print(result)
+                vec[int(i/1000)] += np.linalg.norm(1 - output_vector - result)
+    print(vec/10)
+
     print(out.run({'input': input_vector}))
-    print(out.get_weights_as_vector())
-
-    print(wrapped_cost_function(out.get_weights_as_vector(), out, data_set, 0.5))
-
-    out.learn(data_set, iterations=None)
 
     #out.set_weights_from_vector(np.array([0,1,1,1,-1,1,1,1,-1,0,0,0,0,-1,0,0,0]))
 

@@ -66,12 +66,13 @@ def back_prop(nn, data_set, lambda_reg):
             curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
             delta_matrices[0] += curr_delta
 
-        # Add regularization term
-        for layer_matrix, delta_matrix in zip(layer_matrices, delta_matrices):
-            delta_matrix /= len(data_set)
-            reg_matrix = np.copy(layer_matrix)
-            reg_matrix[:, :1] = 0
-            delta_matrix += lambda_reg * reg_matrix
+        if lambda_reg:
+            # Add regularization term
+            for layer_matrix, delta_matrix in zip(layer_matrices, delta_matrices):
+                delta_matrix /= len(data_set)
+                reg_matrix = np.copy(layer_matrix)
+                reg_matrix[:, :1] = 0
+                delta_matrix += lambda_reg * reg_matrix
 
     return delta_matrices
 

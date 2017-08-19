@@ -6,22 +6,8 @@ from AiAgent1 import AiAgent
 from NeuralNetwork import create_placeholder, create_dense_layer
 
 
-def train_net(num_games, callback=(lambda x, y, z: print(x) if x % 100 == 0 else None), opponent=None,
-              source=None):
-    x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('w1', 3 * 7, x)
-    w2 = create_dense_layer('w2', 50, w1)
-    out = create_dense_layer('out', 7, w2)
-
-    if source:
-        out.load(source)
-
-    # x = create_placeholder('input', 6 * 7)
-    # w1 = create_dense_layer('w1', 50, x)
-    # w2 = create_dense_layer('w2', 50, w1)
-    # out_2 = create_dense_layer('out', 7, w2)
-
-    player0 = AiAgent('Player0', 7, 6, out)
+def train_net(nn, num_games, callback=(lambda x, y, z: print(x) if x % 100 == 0 else None), opponent=None):
+    player0 = AiAgent('Player0', 7, 6, nn)
     if opponent:
         player1 = opponent
     else:
@@ -55,6 +41,8 @@ def train_net(num_games, callback=(lambda x, y, z: print(x) if x % 100 == 0 else
 
         # Get outcome
         reward = result[2] if result[0] == is_second else -result[2]
+        if reward < 0:
+            reward *= 6e-2
 
         # Get data set
         data_set = [(x[2].flatten(), x[3]) for x in turn_queue if x[0] % 2 == is_second]
@@ -62,7 +50,7 @@ def train_net(num_games, callback=(lambda x, y, z: print(x) if x % 100 == 0 else
         # Teach the network to take the good actions
         engine.player0.nn.learn(data_set, reward=reward)
 
-    return player0
+    return nn
 
 
 def echo_partial_results(step, directory, game_index, game_result, engine):
@@ -80,5 +68,16 @@ def save_check_point(step, file_name, save_rate, message_rate, game_result, ai_a
 
 
 if __name__ == '__main__':
-    ai_agent = train_net(20000, callback=lambda x, y, z: save_check_point(x, 'check_point', 1000, 100, y, z))
-    ai_agent.nn.save('new_final_net.npy')
+    x = create_placeholder('input', 6 * 7)
+    w1 = create_dense_layer('W1', 21, x)
+    w2 = create_dense_layer('W2', 14, w1)
+    out = create_dense_layer('out', 7, w1)
+
+    # out.load('new_final_net_2.npy')
+    count = 0
+    iterations = 20000
+    while True:
+        train_net(out, iterations,
+                  callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 100, y, z))
+        out.save('new_final_net_2.npy')
+        count += 1

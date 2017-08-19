@@ -6,6 +6,9 @@ class Player:
         self.cols = cols
         self.rows = rows
 
+    def init(self):
+        pass
+
     def next_turn(self, state):
         print(np.flipud(np.transpose(state)))
         input_action = int(input('Player %s: Enter your move:' % self.name))

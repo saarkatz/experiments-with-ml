@@ -102,6 +102,8 @@ class GameEngine:
     def init(self):
         self._init_state()
         self.turn_queue = []
+        self.player0.init()
+        self.player1.init()
         self._initialized = 1
 
     def run(self, fail_on_timeout=False):
@@ -118,13 +120,13 @@ class GameEngine:
 
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    W1 = create_dense_layer('W1', 50, x)
-    W2 = create_dense_layer('W2', 50, W1)
-    out = create_dense_layer('out', 7, W2)
+    w1 = create_dense_layer('W1', 3 * 7, x, False)
+    w2 = create_dense_layer('W2', 2 * 7, w1, False)
+    out = create_dense_layer('out', 7, w2)
 
     out.load('final_net.npy')
 
-    player0 = AiAgent('Player0', 7, 6, out)
+    player0 = AiAgent('Player0', 7, 6, out, print_action=True)
     player1 = Player('Player1', 7, 6)
     ge = GameEngine(7, 6, 4, player0, player1, 60000)
     ge.init()

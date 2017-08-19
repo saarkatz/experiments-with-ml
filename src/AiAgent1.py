@@ -2,13 +2,18 @@ import numpy as np
 
 
 class AiAgent:
-    def __init__(self, name, cols, rows, nn, source=None):
+    def __init__(self, name, cols, rows, nn, use_prob=False, print_action=False, source=None):
         self.name = name
         self.cols = cols
         self.rows = rows
         self.nn = nn
+        self.use_prob = use_prob
+        self.print_action = print_action
         if source:
             nn.load(source)
+
+    def init(self):
+        pass
 
     @staticmethod
     def _boltzmann_value(x, a, cut_off=0.1):
@@ -20,7 +25,7 @@ class AiAgent:
 
     @staticmethod
     def _raw_to_prob(action):
-        a = AiAgent._boltzmann_value(action, 1)
+        a = AiAgent._boltzmann_value(action, 0.5)
         a = a/sum(a)
         return a
 
@@ -29,9 +34,13 @@ class AiAgent:
             state = np.asarray(state)
         state_vector = state.flatten()
         action_out = self.nn.run({'input': state_vector})
-        action_prob = AiAgent._raw_to_prob(action_out)
         action = np.zeros(action_out.shape)
-        action[np.random.choice(len(action_out), p=action_prob)] = 1
-        print(repr(action_out))
-        print(repr(action_prob))
+        if self.print_action:
+            print(repr(action_out))
+        if self.use_prob:
+            action_prob = AiAgent._raw_to_prob(action_out)
+            action[np.random.choice(len(action_out), p=action_prob)] = 1
+            if self.print_action:
+                print(repr(action_prob))
+        action[np.argmax(action_out)] = 1
         return action

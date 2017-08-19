@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as pp
 
 # Function inputs are:
 # l_in: size of the input layer for the current layer.
@@ -109,3 +109,25 @@ def check_gradients(numeric_grad, back_prop_grad):
 def learning_curve(input_vec, output_vec, weights, nn):
     error_train = wrapped_cost_function(weights, nn, [(input_vec, output_vec)])
     return error_train
+
+
+def calc_cost_iter(weights, nn, dataset, iter_num, cost_vector):
+    current_cost = wrapped_cost_function(weights, nn, dataset)
+    cost_vector[iter_num] = current_cost
+
+
+def plot_cost_iter_graph(cost_vec):
+    pp.xlabel('Iterations')
+    pp.ylabel('Cost Function')
+    ax=pp.subplot(111)
+    ax.set_xlim(1, cost_vec.size)
+    cost = np.arange(1, cost_vec.size, 1)
+    ax.plot(cost_vec, color='r', linewidth=1, label="Test")
+    pp.xticks(cost)
+    pp.grid()
+    pp.show()
+
+
+if __name__ == '__main__':
+    a = np.array([5, 3, 1.5, 0.8, 0.4, 0.2, 0.1, 0.05])
+    plot_cost_iter_graph(a)

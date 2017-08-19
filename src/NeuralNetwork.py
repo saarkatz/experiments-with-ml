@@ -103,12 +103,12 @@ class NeuralNetwork:
         self.matrix[:, :] = weights_vector[-size:].reshape(self.matrix.shape)
         self.prev_layer.set_weights_from_vector(weights_vector[:-size])
 
-    def learn(self, data_set, learn_rate=1e-3, reward=1, lambda_reg=0.5):
+    def learn(self, data_set, learn_rate=1e-3, reward=1.0, lambda_reg=0.5):
         grad_matrices = back_prop(self, data_set, lambda_reg)
         for layer, grad in zip(self.layer_matrices(), grad_matrices):
             layer -= learn_rate * reward * grad
 
-    def unlearn(self, data_set, learn_rate=1e-3, reward=1, lambda_reg=0.5):
+    def unlearn(self, data_set, learn_rate=1e-3, reward=1.0, lambda_reg=0.5):
         grad_matrices = back_prop(self, data_set, lambda_reg)
         for layer, grad in zip(self.layer_matrices(), grad_matrices):
             layer += learn_rate * reward * grad

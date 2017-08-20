@@ -12,7 +12,7 @@ def init_weight(l_in, l_out):
 
 
 # Function gets set of training examples and returns the cost function
-def cost_function(nn, data_set, lambda_reg=0.5):
+def cost_function(nn, data_set, lambda_reg=0.05):
     j = 0
     m = len(data_set)
     for input_vec, output in data_set:
@@ -34,7 +34,7 @@ def cost_function(nn, data_set, lambda_reg=0.5):
     return j
 
 
-def wrapped_cost_function(weights, nn, dataset, lambda_reg=0.5):
+def wrapped_cost_function(weights, nn, dataset, lambda_reg=0.05):
     nn.set_weights_from_vector(weights)
     return cost_function(nn, dataset, lambda_reg)
 
@@ -44,27 +44,46 @@ def sigmoid_direvative_with_bias(vec):
     out_vec[0] = 1
     return out_vec
 
+def relu_derivative(vec):
+    out_vec = np.ones_like(vec)
+    out_vec[vec <= 0] = 0
+    return out_vec
+
 
 # Suppose to be back prop
-def back_prop(nn, data_set, lambda_reg=0.5):
+def back_prop(nn, data_set, lambda_reg=0.05):
     layer_matrices = nn.layer_matrices()
     delta_matrices = [np.zeros(m.shape) for m in layer_matrices]
     num_layers = nn.num_layers()
     for input_vector, output_vector in data_set:
-        a = nn.run_all_partial({'input': input_vector})
-        y = np.concatenate((np.ones(1), output_vector))
-        delta_vec_prev = a[0] - y
         curr_layer = nn
+        a = nn.run_all_partial({'input': input_vector})
+        if curr_layer.has_bias:
+            y = np.concatenate((np.ones(1), output_vector))
+        else:
+            y = output_vector
+        delta_vec_prev = a[0] - y
         for k in range(1, num_layers - 1):
-            curr_delta = np.outer(delta_vec_prev, a[k])[1:]
+            if curr_layer.has_bias:
+                curr_delta = np.outer(delta_vec_prev, a[k])[1:]
+            else:
+                curr_delta = np.outer(delta_vec_prev, a[k])
+
             delta_matrices[-k] += curr_delta
 
-            delta_vec_next = \
-                np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
+            if curr_layer.has_bias:
+                delta_vec_next = \
+                    np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * relu_derivative(a[k])
+            else:
+                delta_vec_next = \
+                    np.dot(np.transpose(curr_layer.matrix), delta_vec_prev) * relu_derivative(a[k])
             delta_vec_prev = delta_vec_next
             curr_layer = curr_layer.prev_layer
         else:
-            curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
+            if curr_layer.has_bias:
+                curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
+            else:
+                curr_delta = np.outer(delta_vec_prev, a[-1])
             delta_matrices[0] += curr_delta
 
         if lambda_reg:
@@ -78,7 +97,7 @@ def back_prop(nn, data_set, lambda_reg=0.5):
     return delta_matrices
 
 
-def wrapped_back_prop(x, nn, data_set, lambda_reg=0.5):
+def wrapped_back_prop(x, nn, data_set, lambda_reg=0.05):
     nn.set_weights_from_vector(x)
     d = back_prop(nn, data_set, lambda_reg)
     grad = np.zeros(0)

@@ -65,7 +65,9 @@ class NeuralNetwork:
             output_vector = np.dot(self.matrix, input_vector)
 
         # Return the out vector
-        return expit(output_vector)
+        output_vector[output_vector < 0] = 0
+        #return expit(output_vector)
+        return  output_vector
 
     def run_all_partial(self, input_dict):
         if self.is_placeholder:
@@ -79,7 +81,9 @@ class NeuralNetwork:
         history = self.prev_layer.run_all_partial(input_dict)
 
         # Calculate output vector
-        output_vector = expit(np.dot(self.matrix, history[0]))
+        #output_vector = expit(np.dot(self.matrix, history[0]))
+        output_vector = np.dot(self.matrix, history[0])
+        output_vector[output_vector < 0] = 0
         if self.has_bias:
             full_output_vector = np.concatenate((np.ones(1), output_vector))
         else:
@@ -125,10 +129,12 @@ def create_placeholder(name, size=1, has_bias=True):
 
 
 def create_dense_layer(name, size, input_layer, has_bias=True):
-    return NeuralNetwork(name, size, input_layer, False, has_bias=True)
+    return NeuralNetwork(name, size, input_layer, False, has_bias=has_bias)
 
 
 if __name__ == '__main__':
+    np.seterr(all='raise')
+    np.random.seed(40)
     input_vector = np.array([[0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0],
                              [0, 0, 0, 0, 0, 0],
@@ -147,17 +153,17 @@ if __name__ == '__main__':
 
     vec = np.zeros(11)
     for j in range(10):
-        x = create_placeholder('input', 6 * 7)
-        w1 = create_dense_layer('W1', 3 * 7, x)
-        w2 = create_dense_layer('W2', 2 * 7, w1)
-        out = create_dense_layer('out', 7, w2)
+        x = create_placeholder('input', 6 * 7, has_bias=False)
+        w1 = create_dense_layer('W1', 3 * 7, x, has_bias=False)
+        w2 = create_dense_layer('W2', 2 * 7, w1, has_bias=False)
+        out = create_dense_layer('out', 7, w2, has_bias=False)
 
         for i in range(0, 10001):
-            out.learn(data_set, reward=-1e-1, lambda_reg=0.1)
+            out.learn(data_set, reward=1, lambda_reg=0.5)
             if i % 1000 == 0:
                 result = out.run({'input': input_vector})
-                # print(result)
-                vec[int(i/1000)] += np.linalg.norm(1 - output_vector - result)
+                print(result)
+                vec[int(i/1000)] += np.linalg.norm(output_vector - result)
     print(vec/10)
 
     print(out.run({'input': input_vector}))

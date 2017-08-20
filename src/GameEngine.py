@@ -124,7 +124,7 @@ if __name__ == '__main__':
     w2 = create_dense_layer('W2', 2 * 7, w1, False)
     out = create_dense_layer('out', 7, w2)
 
-    out.load('final_net.npy')
+    out.load('net_nb_lambda0_5_0.npy')
 
     player0 = AiAgent('Player0', 7, 6, out, print_action=True)
     player1 = Player('Player1', 7, 6)

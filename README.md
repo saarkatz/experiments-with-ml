@@ -1,7 +1,7 @@
 # experiments-with-ml
 Implementing and testing different approaches of machine learning
 
-## Attempt number 1
+## Attempt 1
 Teach a neural network (NN) to play Connect Four using regression.
 In the first attemp we build a simple (and wanky) api for creating neural networks using numpy matrices.
 All activation functions were sigmoid (`scipy.special.expit`) and every layer had a bias node.

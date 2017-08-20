@@ -51,20 +51,34 @@ def back_prop(nn, data_set, lambda_reg=0.5):
     delta_matrices = [np.zeros(m.shape) for m in layer_matrices]
     num_layers = nn.num_layers()
     for input_vector, output_vector in data_set:
-        a = nn.run_all_partial({'input': input_vector})
-        y = np.concatenate((np.ones(1), output_vector))
-        delta_vec_prev = a[0] - y
         curr_layer = nn
+        a = nn.run_all_partial({'input': input_vector})
+        if curr_layer.has_bias:
+            y = np.concatenate((np.ones(1), output_vector))
+        else:
+            y = output_vector
+        delta_vec_prev = a[0] - y
         for k in range(1, num_layers - 1):
-            curr_delta = np.outer(delta_vec_prev, a[k])[1:]
+            if curr_layer.has_bias:
+                curr_delta = np.outer(delta_vec_prev, a[k])[1:]
+            else:
+                curr_delta = np.outer(delta_vec_prev, a[k])
+
             delta_matrices[-k] += curr_delta
 
-            delta_vec_next = \
-                np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
+            if curr_layer.has_bias:
+                delta_vec_next = \
+                    np.dot(np.transpose(curr_layer.matrix), delta_vec_prev[1:]) * sigmoid_direvative_with_bias(a[k])
+            else:
+                delta_vec_next = \
+                    np.dot(np.transpose(curr_layer.matrix), delta_vec_prev) * sigmoid_direvative_with_bias(a[k])
             delta_vec_prev = delta_vec_next
             curr_layer = curr_layer.prev_layer
         else:
-            curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
+            if curr_layer.has_bias:
+                curr_delta = np.outer(delta_vec_prev, a[-1])[1:]
+            else:
+                curr_delta = np.outer(delta_vec_prev, a[-1])
             delta_matrices[0] += curr_delta
 
         if lambda_reg:

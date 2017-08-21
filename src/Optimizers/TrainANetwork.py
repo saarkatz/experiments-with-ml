@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from GameEngine import GameEngine
+from Games.FourInARow import FourInARow
 from Games.FourInARow.AiAgent1 import AiAgent
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Games.FourInARow.MinPlayer import MinPlayer
@@ -21,7 +21,7 @@ def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
     else:
         player1 = player0
 
-    engine = GameEngine(7, 6, 4, player0, player1, 500)
+    engine = FourInARow(7, 6, 4, player0, player1, 500)
 
     for i in range(num_games):
         if multiple_opponents:
@@ -87,7 +87,7 @@ def save_check_point(step, file_name, save_rate, message_rate, game_result, ai_a
 
 
 def test_net(nn, opponent):
-    engine = GameEngine(7, 6, 4, None, None, 60000)
+    engine = FourInARow(7, 6, 4, None, None, 60000)
     player0 = AiAgent('nn', 7, 6, nn)
 
     wins = 0

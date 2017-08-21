@@ -132,6 +132,10 @@ def create_dense_layer(name, size, input_layer, has_bias=True):
     return NeuralNetwork(name, size, input_layer, False, has_bias=has_bias)
 
 
+def init_model(nn):
+    pass
+
+
 if __name__ == '__main__':
     np.seterr(all='raise')
     np.random.seed(40)

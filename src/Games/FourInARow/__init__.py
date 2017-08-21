@@ -11,7 +11,7 @@ def mtime():
     return int(round(time.time() * 1000))
 
 
-class GameEngine:
+class FourInARow:
     def __init__(self, cols, rows, goal, player0, player1, timeout):
         self.cols = cols
         self.rows = rows
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
     player0 = AiAgent('Player0', 7, 6, out, print_action=True)
     player1 = Player('Player1', 7, 6)
-    ge = GameEngine(7, 6, 4, player0, player1, 60000)
+    ge = FourInARow(7, 6, 4, player0, player1, 60000)
     ge.init()
     result = ge.run()
     print(result)

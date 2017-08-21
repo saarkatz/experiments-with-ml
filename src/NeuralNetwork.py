@@ -1,7 +1,6 @@
 import numpy as np
-from scipy.special import expit
-from scipy.optimize import fmin_cg
-from NNFunctions import wrapped_cost_function, back_prop, compute_numerical_gradient, check_gradients
+
+from Optimizers.NNFunctions import back_prop
 
 
 # Function inputs are:

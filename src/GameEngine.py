@@ -1,8 +1,10 @@
-from NeuralNetwork import create_dense_layer, create_placeholder
-from Player import Player
-from AiAgent1 import AiAgent
-import numpy as np
 import time
+
+import numpy as np
+
+from Games.FourInARow.AiAgent1 import AiAgent
+from Games.FourInARow.Player import Player
+from NeuralNetwork import create_dense_layer, create_placeholder
 
 
 def mtime():
@@ -124,7 +126,7 @@ if __name__ == '__main__':
     w2 = create_dense_layer('W2', 4 * 7, w1, False)
     out = create_dense_layer('out', 7, w2)
 
-    out.load('net_nb_lambda0_5_0.npy')
+    out.load('check_point.npy')
 
     player0 = AiAgent('Player0', 7, 6, out, print_action=True)
     player1 = Player('Player1', 7, 6)

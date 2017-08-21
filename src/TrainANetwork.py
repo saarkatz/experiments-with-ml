@@ -109,8 +109,8 @@ def test_net(nn, opponent):
 
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('w1', 3 * 7, x, has_bias=False)
-    w2 = create_dense_layer('w2', 2 * 7, w1, has_bias=False)
+    w1 = create_dense_layer('w1', 4 * 7, x, has_bias=False)
+    w2 = create_dense_layer('w2', 4 * 7, w1, has_bias=False)
     out = create_dense_layer('out', 7, w2)
 
     x = create_placeholder('input', 6 * 7)
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     const_opponent = ConstPlayer('const_opponent', 7, 6)
     opponent = MinPlayer('opponent', 7, 6)
 
-    # out.load('net_1_1.npy')
+    out.load('net_nb_lambda0_5_0.npy')
 
     test_net(out, opponent)
     test_net(out, rand_opponent)
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     iterations = 5000
     while True:
         # opponent.nn.set_weights_from_vector(out.get_weights_as_vector())
-        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=0.5,
+        train_net(out, iterations, learn_rate=1e-4, gamma=0.92, lambda_reg=0.5,
                   callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 1000, y, z),
                   opponent=opponent)  # [opponent, rand_opponent, const_opponent])
         out.save('net_nb_lambda0_5_0.npy')

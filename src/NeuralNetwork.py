@@ -65,6 +65,7 @@ class NeuralNetwork:
             output_vector = np.dot(self.matrix, input_vector)
 
         # Return the out vector
+        output_vector[np.isnan(output_vector)] = 0
         output_vector[output_vector < 0] = 0
         #return expit(output_vector)
         return  output_vector

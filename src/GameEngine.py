@@ -120,8 +120,8 @@ class GameEngine:
 
 if __name__ == '__main__':
     x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('W1', 3 * 7, x, False)
-    w2 = create_dense_layer('W2', 2 * 7, w1, False)
+    w1 = create_dense_layer('W1', 4 * 7, x, False)
+    w2 = create_dense_layer('W2', 4 * 7, w1, False)
     out = create_dense_layer('out', 7, w2)
 
     out.load('net_nb_lambda0_5_0.npy')

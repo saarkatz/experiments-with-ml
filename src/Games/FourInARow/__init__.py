@@ -2,9 +2,9 @@ import time
 
 import numpy as np
 
-from Games.FourInARow.AiAgent1 import AiAgent
+from Games.FourInARow.AiAgent import AiAgent
 from Games.FourInARow.Player import Player
-from NeuralNetwork import create_dense_layer, create_placeholder
+from NeuralNetwork import create_layer, ReLU, Identity
 
 
 def mtime():
@@ -35,10 +35,10 @@ class FourInARow:
     def _validate_action(self, action):
         if not isinstance(action, np.ndarray):
             action = np.asarray(action)
-        try:
-            action.reshape((self.cols,))
-        except ValueError as ve:
+        if not action.size == self.cols:
             return False
+        else:
+            action.reshape((self.cols,))
         if not sum(action) == 1:
             return False
         index = np.argmax(action)
@@ -121,12 +121,13 @@ class FourInARow:
 
 
 if __name__ == '__main__':
-    x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('W1', 3 * 7, x, False)
-    w2 = create_dense_layer('W2', 2 * 7, w1, False)
-    out = create_dense_layer('out', 7, w2)
+    np.seterr(all='raise')
+    x = create_layer(None, 6 * 7)
+    w1 = create_layer(ReLU, 3 * 7, x, False)
+    w2 = create_layer(ReLU, 2 * 7, w1, False)
+    out = create_layer(Identity, 7, w2)
 
-    out.load('check_point.npy')
+    out.load('../../net_strong_a3_0.npy')
 
     player0 = AiAgent('Player0', 7, 6, out, print_action=True)
     player1 = Player('Player1', 7, 6)

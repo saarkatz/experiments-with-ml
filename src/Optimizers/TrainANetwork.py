@@ -3,10 +3,10 @@ import os
 import numpy as np
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.AiAgent1 import AiAgent
+from Games.FourInARow.AiAgent import AiAgent
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Games.FourInARow.MinPlayer import MinPlayer
-from NeuralNetwork import create_placeholder, create_dense_layer
+from NeuralNetwork import create_layer, ReLU, Identity
 
 
 def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
@@ -52,7 +52,8 @@ def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
         reward = result[2] if result[0] == is_second else -result[2]
         if reward < 0:
             if result[2] < 0:
-                gamma *= 1e-2
+                reward *= 1e-1
+                gamma *= 1e-1
             else:
                 reward *= 1e-2
 
@@ -63,7 +64,10 @@ def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
         running_reward = reward
         back_reward = [running_reward]
         for _ in range(len(data_set) - 1):
-            back_reward.append(back_reward[-1] * gamma)
+            new_r = back_reward[-1] * gamma
+            if new_r < 1e-10: # Cut off too small reward to prevent floating point underflow
+                new_r = 0
+            back_reward.append(new_r)
 
         # Teach the network to take the good actions
         for pair, r in zip(data_set, reversed(back_reward)):
@@ -108,28 +112,30 @@ def test_net(nn, opponent):
 
 
 if __name__ == '__main__':
-    x = create_placeholder('input', 6 * 7)
-    w1 = create_dense_layer('w1', 3 * 7, x, has_bias=False)
-    w2 = create_dense_layer('w2', 2 * 7, w1, has_bias=False)
-    out = create_dense_layer('out', 7, w2)
+    np.random.seed(0)
+    np.seterr(all='raise')
+    x = create_layer(None, 6 * 7)
+    w1 = create_layer(ReLU, 3 * 7, x, has_bias=False)
+    w2 = create_layer(ReLU, 2 * 7, w1, has_bias=False)
+    out = create_layer(Identity, 7, w2)
 
-    x = create_placeholder('input', 6 * 7)
-    opponent_nn = create_dense_layer('out', 7, x)
+    x = create_layer(None, 6 * 7)
+    opponent_nn = create_layer(Identity, 7, x)
     rand_opponent = AiAgent('rand_opponent', 7, 6, opponent_nn, use_prob=True)
     const_opponent = ConstPlayer('const_opponent', 7, 6)
     opponent = MinPlayer('opponent', 7, 6)
 
     # out.load('net_1_1.npy')
 
-    test_net(out, opponent)
-    test_net(out, rand_opponent)
-    test_net(out, const_opponent)
+    # test_net(out, opponent)
+    # test_net(out, rand_opponent)
+    # test_net(out, const_opponent)
 
     count = 0
     iterations = 20000
     while True:
         # opponent.nn.set_weights_from_vector(out.get_weights_as_vector())
-        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=1,
+        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=0,
                   callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 1000, y, z),
                   opponent=opponent)  # [opponent, rand_opponent, const_opponent])
         out.save('net_strong_a3_{0}.npy'.format(count))

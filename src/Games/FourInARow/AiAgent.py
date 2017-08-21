@@ -33,7 +33,7 @@ class AiAgent:
         if not isinstance(state, np.ndarray):
             state = np.asarray(state)
         state_vector = state.flatten()
-        action_out = self.nn.run({'input': state_vector})
+        action_out = self.nn.run(state_vector)
         action = np.zeros(action_out.shape)
         if self.print_action:
             print(repr(action_out))

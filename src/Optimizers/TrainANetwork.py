@@ -1,10 +1,11 @@
 import os
+
 import numpy as np
 
 from GameEngine import GameEngine
-from AiAgent1 import AiAgent
-from ConstPlayer import ConstPlayer
-from MinPlayer import MinPlayer
+from Games.FourInARow.AiAgent1 import AiAgent
+from Games.FourInARow.ConstPlayer import ConstPlayer
+from Games.FourInARow.MinPlayer import MinPlayer
 from NeuralNetwork import create_placeholder, create_dense_layer
 
 
@@ -51,8 +52,7 @@ def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
         reward = result[2] if result[0] == is_second else -result[2]
         if reward < 0:
             if result[2] < 0:
-                reward *= 1e-1
-                gamma *= 0.1
+                gamma *= 1e-2
             else:
                 reward *= 1e-2
 
@@ -126,18 +126,14 @@ if __name__ == '__main__':
     test_net(out, const_opponent)
 
     count = 0
-    iterations = 5000
+    iterations = 20000
     while True:
         # opponent.nn.set_weights_from_vector(out.get_weights_as_vector())
-        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=0.5,
+        train_net(out, iterations, learn_rate=1e-4, gamma=0.99, lambda_reg=1,
                   callback=lambda x, y, z: save_check_point(x + count * iterations, 'check_point', 1000, 1000, y, z),
                   opponent=opponent)  # [opponent, rand_opponent, const_opponent])
-        out.save('net_nb_lambda0_5_0.npy')
+        out.save('net_strong_a3_{0}.npy'.format(count))
         test_net(out, opponent)
         test_net(out, rand_opponent)
         test_net(out, const_opponent)
         count += 1
-        # if count >= 1:
-        #     break
-
-

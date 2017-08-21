@@ -74,6 +74,7 @@ class NeuralNetwork:
             self.activation.func_in_place(output_vector)
 
         # Return the out vector
+        output_vector[np.isnan(output_vector)] = 0
         return output_vector
 
     def run_all_partial(self, input_vec, activation_after=False):

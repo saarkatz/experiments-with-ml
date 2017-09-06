@@ -108,7 +108,7 @@ def test_net(nn, opponent):
         reward = result[2] if result[0] == is_second else -result[2]
         if reward > 0:
             wins += 1
-    print(wins/games)
+    return wins/games
 
 
 if __name__ == '__main__':

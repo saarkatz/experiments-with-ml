@@ -22,14 +22,22 @@ class NeuralNetwork:
         self.size = size
         self.is_input = input_layer is None
         self.has_bias = has_bias
+        if input_layer:
+            self.matrix = init_weight(input_layer.size, self.size, input_layer.has_bias)
+        else:
+            self.matrix = None
 
         # Internal matrix of weights
         if input_layer:
-            self.matrix = init_weight(input_layer.size, size, input_layer.has_bias)
             self.prev_layer = input_layer
         else:
             self.matrix = None
             self.prev_layer = None
+
+    def init_model(self):
+        if not self.is_input:
+            self.matrix = init_weight(self.prev_layer.size, self.size, self.prev_layer.has_bias)
+            self.prev_layer.init_model()
 
     def num_layers(self):
         if self.is_input:

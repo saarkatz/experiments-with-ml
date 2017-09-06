@@ -1,18 +1,20 @@
+import random
 import numpy as np
 
 
 class MinPlayer:
-    def __init__(self, name, cols, rows):
+    def __init__(self, name, cols, rows, seed=None):
         self.name = name
         self.cols = cols
         self.rows = rows
+        self.seed = seed
         self.action = np.zeros(self.cols)
 
     def init(self):
-        pass
+        random.seed(self.seed)
 
     def next_turn(self, state):
-        direction = np.random.randint(0, 2)
+        direction = random.randint(0, 1)
         action = np.zeros(self.cols)
         min_col = (-1, 10)
         cols = range(self.cols)

@@ -2,7 +2,7 @@ import random
 import numpy as np
 
 
-class ConstPlayer:
+class RandomPlayer:
     def __init__(self, name, cols, rows, seed=None):
         self.name = name
         self.cols = cols
@@ -12,10 +12,8 @@ class ConstPlayer:
 
     def init(self):
         random.seed(self.seed)
-        self.action -= self.action
-        self.action[random.randint(0, self.cols - 1)] = 1
 
     def next_turn(self, state):
-        if not state[np.argmax(self.action), -1] == 0:
-            self.init()
+        self.action -= self.action
+        self.action[random.randint(0, self.action.size - 1)] = 1
         return self.action

@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class AiAgent:
+class NNAgent:
     def __init__(self, name, cols, rows, nn, use_prob=False, print_action=False, source=None):
         self.name = name
         self.cols = cols
@@ -25,7 +25,7 @@ class AiAgent:
 
     @staticmethod
     def _raw_to_prob(action):
-        a = AiAgent._boltzmann_value(action, 0.5)
+        a = NNAgent._boltzmann_value(action, 0.5)
         a = a/sum(a)
         return a
 
@@ -38,7 +38,7 @@ class AiAgent:
         if self.print_action:
             print(repr(action_out))
         if self.use_prob:
-            action_prob = AiAgent._raw_to_prob(action_out)
+            action_prob = NNAgent._raw_to_prob(action_out)
             action[np.random.choice(len(action_out), p=action_prob)] = 1
             if self.print_action:
                 print(repr(action_prob))

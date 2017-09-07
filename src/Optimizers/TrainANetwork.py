@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.NNAgent import AiAgent
+from Games.FourInARow.NNAgent import NNAgent
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Games.FourInARow.MinPlayer import MinPlayer
 from NeuralNetwork import create_layer, ReLU, Identity
@@ -11,7 +11,7 @@ from NeuralNetwork import create_layer, ReLU, Identity
 
 def train_net(nn, num_games, learn_rate=1e-3, gamma=0.99, lambda_reg=0.5,
               callback=(lambda x, y, z: print(x) if x % 100 == 0 else None), opponent=None):
-    player0 = AiAgent('Player0', 7, 6, nn)
+    player0 = NNAgent('Player0', 7, 6, nn)
     multiple_opponents = isinstance(opponent, list)
     if opponent:
         if not multiple_opponents:
@@ -92,7 +92,7 @@ def save_check_point(step, file_name, save_rate, message_rate, game_result, ai_a
 
 def test_net(nn, opponent):
     engine = FourInARow(7, 6, 4, None, None, 60000)
-    player0 = AiAgent('nn', 7, 6, nn)
+    player0 = NNAgent('nn', 7, 6, nn)
 
     wins = 0
     games = 1000
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     x = create_layer(None, 6 * 7)
     opponent_nn = create_layer(Identity, 7, x)
-    rand_opponent = AiAgent('rand_opponent', 7, 6, opponent_nn, use_prob=True)
+    rand_opponent = NNAgent('rand_opponent', 7, 6, opponent_nn, use_prob=True)
     const_opponent = ConstPlayer('const_opponent', 7, 6)
     opponent = MinPlayer('opponent', 7, 6)
 

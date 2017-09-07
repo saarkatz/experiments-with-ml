@@ -82,16 +82,16 @@ class FourInARow:
         action = player.next_turn(self.state if turn % 2 == 0 else -self.state)
         end = mtime()
         elapsed = end - start
+        self.turn_queue.append((turn, player.name, self.state.copy() if turn % 2 == 0 else -self.state.copy(), action))
         if not self._validate_action(action):
             return -1
-        self.turn_queue.append((turn, player.name, self.state.copy() if turn % 2 == 0 else -self.state.copy(), action))
         self._take_action(action if turn % 2 == 0 else -action)
         if elapsed > self.timeout:
             if fail_on_timeout:
                 return -1
             else:
                 print('Turn {0}: player {1} has timed out with {2} ms out of {3} ms'.format(turn, player.name, elapsed,
-                      self.timeout))
+                                                                                            self.timeout))
         if self._check_win_condition(action):
             return 1
         return 0
@@ -115,25 +115,42 @@ class FourInARow:
             turn += 1
 
 
-from Games.FourInARow.NNAgent import AiAgent
+import pickle
+from Games.FourInARow.NNAgent import NNAgent
+from Games.FourInARow.PolicyAgent import PolicyAgent
+from Games.FourInARow.HorizontalPlayer import HorizontalPlayer
+from Games.FourInARow.ConstPlayer import ConstPlayer
+from Games.FourInARow.MinPlayer import MinPlayer
 from Games.FourInARow.Player import Player
 from NeuralNetwork import create_layer, ReLU, Sigmoid
+from MonteCarloTree import MonteCarloTree
 
 
 if __name__ == '__main__':
-    np.seterr(all='raise')
-    x = create_layer(None, 6 * 7)
-    w1 = create_layer(ReLU, 3 * 7, x, False)
-    w2 = create_layer(ReLU, 2 * 7, w1, False)
-    out = create_layer(Sigmoid, 7, w2)
+    # np.seterr(all='raise')
+    # x = create_layer(None, 6 * 7)
+    # w1 = create_layer(ReLU, 3 * 7, x, False)
+    # w2 = create_layer(ReLU, 2 * 7, w1, False)
+    # out = create_layer(Sigmoid, 7, w2)
+    mct = MonteCarloTree(7, None, do_explore=False)
 
-    out.load('../../Optimizers/GAOptimizer2/ga_net_fit6.npy')
+    with open('../../mcts_policy_7.pkl', 'rb') as file:
+        mct.policy = pickle.load(file)
 
-    player0 = AiAgent('Player0', 7, 6, out, print_action=True)
-    player1 = Player('Player1', 7, 6)
+    # out.load('../../Optimizers/GAOptimizer2/ga_net_fit6.npy')
+
+    # player0 = NNAgent('Player0', 7, 6, out, print_action=True)
+    # player0 = PolicyAgent('Player0', 7, 6, mct)
+    player0 = Player('Player0', 7, 6)
+    i = 181
+    player1 = PolicyAgent('Player1', 7, 6, mct)
     ge = FourInARow(7, 6, 4, player0, player1, 60000)
-    ge.init()
-    result = ge.run()
-    print(result)
-    print(ge.turn_queue)
+    while True:
+        ge.init()
+        result = ge.run()
+        print(result)
+        # print(ge.turn_queue)
+        # with open('../../../game_history/game_{0}.pkl'.format(i), 'wb') as file:
+        #     pickle.dump(ge.turn_queue, file)
+        i += 1
     # 3345442122331561541522

@@ -56,7 +56,7 @@ from Optimizers.GAOptimizer2.NoSpeciation import NoSpeciation
 from Optimizers.GAOptimizer2.NNModel import NNModel
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.NNAgent import AiAgent
+from Games.FourInARow.NNAgent import NNAgent
 from Games.FourInARow.HorizontalPlayer import HorizontalPlayer
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Games.FourInARow.RandomPlayer import RandomPlayer
@@ -101,11 +101,8 @@ class FourInARowFitFunction:
         self.opponent_list = []
 
         self.opponent_list.append((HorizontalPlayer('horizontal', 7, 6), 28, horizontal_setting))
-
         self.opponent_list.append((ConstPlayer('const', 7, 6), 14, const_setting))
-
         self.opponent_list.append((RandomPlayer('rand', 7, 6), 7, random_setting))
-
         self.opponent_list.append((MinPlayer('min', 7, 6), 7, min_setting))
 
         self.game = FourInARow(7, 6, 4, None, None, 500)
@@ -175,7 +172,7 @@ if __name__ == "__main__":
 
     ff = FourInARowFitFunction()
 
-    gaOptimizer = GAOptimizer2(NNModel(AiAgent('Player', 7, 6, nn)),
+    gaOptimizer = GAOptimizer2(NNModel(NNAgent('Player', 7, 6, nn)),
                                HighestPercentileSurvival(0.5),
                                RandomPairsCrossover(2, 0, True),
                                ElitistMutation(0.05, [-1, 1], 0.9, [-0.01, 0.01], 2),
@@ -207,7 +204,7 @@ if __name__ == "__main__":
             w = create_layer(ReLU, 7 * 3, x, False)
             w2 = create_layer(ReLU, 7 * 2, w, False)
             o = create_layer(Sigmoid, 7, w2, False)
-            opponent = AiAgent('Opponent', 7, 6, o)
+            opponent = NNAgent('Opponent', 7, 6, o)
             opponent.nn.set_weights_from_vector(gaOptimizer.fittest_chromosome[-1])
             ff.add_opponent((opponent, 2, None))
         np.save('ga_net_fit6.npy', gaOptimizer.fittest_chromosome[-1])

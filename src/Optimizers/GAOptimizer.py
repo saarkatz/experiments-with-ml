@@ -102,14 +102,14 @@ class GAOptimizer:
 
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.NNAgent import AiAgent
+from Games.FourInARow.NNAgent import NNAgent
 from Games.FourInARow.MinPlayer import MinPlayer
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Optimizers.TrainANetwork import test_net
 import pickle
 
 def fit_four_in_a_row(nn, max_games, random_turns, opponent):
-    agent = AiAgent('Player', 7, 6, nn, False)
+    agent = NNAgent('Player', 7, 6, nn, False)
     multiple_opponents = isinstance(opponent, list)
     if multiple_opponents:
         opponents = opponent
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     w = create_layer(ReLU, 7 * 3, x, False)
     w2 = create_layer(ReLU, 7 * 2, w, False)
     rand_opponent_nn = create_layer(Sigmoid, 7, w2, False)
-    opponent = AiAgent('Rand', 7, 6, rand_opponent_nn, True)
+    opponent = NNAgent('Rand', 7, 6, rand_opponent_nn, True)
     first_opponent = MinPlayer('player', 7, 6)
     const_opponent = ConstPlayer('const', 7, 6)
 

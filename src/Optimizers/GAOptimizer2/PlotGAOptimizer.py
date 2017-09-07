@@ -16,7 +16,7 @@ from Optimizers.GAOptimizer2 import random_setting
 from Optimizers.GAOptimizer2 import min_setting
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.NNAgent import AiAgent
+from Games.FourInARow.NNAgent import NNAgent
 from Games.FourInARow.HorizontalPlayer import HorizontalPlayer
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Games.FourInARow.RandomPlayer import RandomPlayer
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     ff = FourInARowFitFunction()
 
-    gaOptimizer = GAOptimizer2(NNModel(AiAgent('Player', 7, 6, nn)),
+    gaOptimizer = GAOptimizer2(NNModel(NNAgent('Player', 7, 6, nn)),
                                HighestPercentileSurvival(0.5),
                                RandomPairsCrossover(2, 0, True),
                                ElitistMutation(0.05, [-1, 1], 0.9, [-0.01, 0.01], 2),

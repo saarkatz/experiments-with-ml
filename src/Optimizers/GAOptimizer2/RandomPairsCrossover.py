@@ -9,6 +9,7 @@ class RandomPairsCrossover:
         self.use_swap = use_swap
 
     def execute(self, model, population, total_population):
+        random.seed(None)
         new_gourp = []
         current_population = sum((len(s) for s in population))
         missing_population = total_population - current_population
@@ -29,12 +30,13 @@ class RandomPairsCrossover:
             cutting_points = random.sample(range(1, new_chromosome.size - 1), self.num_cuts)
             cutting_points.extend([0, new_chromosome.size - 1])
             cutting_points.sort()
+            offset = 0  # random.randint(0, 1)
             if self.use_swap:
-                for first_index, second_index in zip(cutting_points[::2], cutting_points[1::2]):
+                for first_index, second_index in zip(cutting_points[offset::2], cutting_points[1 + offset::2]):
                     new_chromosome[first_index:second_index], comp_chromosome[first_index:second_index] = \
                         comp_chromosome[first_index:second_index], new_chromosome[first_index:second_index].copy()
             else:
-                for first_index, second_index in zip(cutting_points[::2], cutting_points[1::2]):
+                for first_index, second_index in zip(cutting_points[offset::2], cutting_points[1 + offset ::2]):
                     new_segment = (comp_chromosome[first_index:second_index] +
                                    new_chromosome[first_index:second_index])/2
                     new_chromosome[first_index:second_index] = new_segment

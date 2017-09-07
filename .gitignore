@@ -105,3 +105,9 @@ ENV/
 
 # Numpy
 *.npy
+
+# pickle
+*.pkl
+
+# Git merge
+*.orig

@@ -1,10 +1,5 @@
 import time
-
 import numpy as np
-
-from Games.FourInARow.AiAgent import AiAgent
-from Games.FourInARow.Player import Player
-from NeuralNetwork import create_layer, ReLU, Identity
 
 
 def mtime():
@@ -120,14 +115,19 @@ class FourInARow:
             turn += 1
 
 
+from Games.FourInARow.NNAgent import AiAgent
+from Games.FourInARow.Player import Player
+from NeuralNetwork import create_layer, ReLU, Sigmoid
+
+
 if __name__ == '__main__':
     np.seterr(all='raise')
     x = create_layer(None, 6 * 7)
     w1 = create_layer(ReLU, 3 * 7, x, False)
     w2 = create_layer(ReLU, 2 * 7, w1, False)
-    out = create_layer(Identity, 7, w2)
+    out = create_layer(Sigmoid, 7, w2)
 
-    out.load('../../net_strong_a3_0.npy')
+    out.load('../../Optimizers/GAOptimizer2/ga_net_fit6.npy')
 
     player0 = AiAgent('Player0', 7, 6, out, print_action=True)
     player1 = Player('Player1', 7, 6)

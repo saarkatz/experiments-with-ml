@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.AiAgent import AiAgent
+from Games.FourInARow.NNAgent import AiAgent
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Games.FourInARow.MinPlayer import MinPlayer
 from NeuralNetwork import create_layer, ReLU, Identity

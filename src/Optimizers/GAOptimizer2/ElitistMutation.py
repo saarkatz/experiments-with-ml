@@ -10,6 +10,7 @@ class ElitistMutation:
         self.cutoff = elitist_cutoff
 
     def execute(self, model, population):
+        random.seed(None)
         flat_population = [c[0] for s in population for c in s]
         population_size = len(flat_population)
         num_mutations = int((population_size - self.cutoff) * flat_population[0].size * self.mutation_rate)

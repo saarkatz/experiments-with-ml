@@ -102,7 +102,7 @@ class GAOptimizer:
 
 
 from Games.FourInARow import FourInARow
-from Games.FourInARow.AiAgent import AiAgent
+from Games.FourInARow.NNAgent import AiAgent
 from Games.FourInARow.MinPlayer import MinPlayer
 from Games.FourInARow.ConstPlayer import ConstPlayer
 from Optimizers.TrainANetwork import test_net

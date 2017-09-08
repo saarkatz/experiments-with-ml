@@ -25,24 +25,26 @@ from Optimizers.TrainANetwork import test_net
 
 
 if __name__ == '__main__':
-    x = create_layer(None, 7 * 6)
-    w = create_layer(ReLU, 7 * 3, x, False)
-    w2 = create_layer(ReLU, 7 * 2, w, False)
-    nn = create_layer(Sigmoid, 7, w2, False)
+    # x = create_layer(None, 7 * 6)
+    # w = create_layer(ReLU, 7 * 6 * 3, x, False)
+    # w2 = create_layer(ReLU, 7 * 6 * 2, w, False)
+    # nn = create_layer(Sigmoid, 7, w2, False)
+    #
+    # ff = FourInARowFitFunction()
+    #
+    # gaOptimizer = GAOptimizer2(NNModel(NNAgent('Player', 7, 6, nn)),
+    #                            HighestPercentileSurvival(0.5),
+    #                            RandomPairsCrossover(2, 0, True),
+    #                            ElitistMutation(0.05, [-1, 1], 0.9, [-0.01, 0.01], 2),
+    #                            NoSpeciation(),
+    #                            ff)
 
-    ff = FourInARowFitFunction()
-
-    gaOptimizer = GAOptimizer2(NNModel(NNAgent('Player', 7, 6, nn)),
-                               HighestPercentileSurvival(0.5),
-                               RandomPairsCrossover(2, 0, True),
-                               ElitistMutation(0.05, [-1, 1], 0.9, [-0.01, 0.01], 2),
-                               NoSpeciation(),
-                               ff)
-
-    with open('gaOptimizer2_fit6_save.pkl', 'rb') as file:
+    with open('gaOptimizer2_fit8_lnn4_save.pkl', 'rb') as file:
         gaOptimizer = pickle.load(file)
+        plt.grid(True)
         plt.plot(gaOptimizer.max_fit)
         plt.plot(gaOptimizer.average_fit)
+        # plt.plot(gaOptimizer.min_fit)
         plt.xlabel('Generations')
         plt.ylabel('Fitness')
         plt.show()

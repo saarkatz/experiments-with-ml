@@ -97,19 +97,21 @@ def min_setting(index, agent, before):
 
 
 class FourInARowFitFunction:
-    def __init__(self):
-        self.opponent_list = []
+    def __init__(self, games_cap=50):
+        self.cap = games_cap
 
-        self.opponent_list.append((HorizontalPlayer('horizontal', 7, 6), 28, horizontal_setting))
-        self.opponent_list.append((ConstPlayer('const', 7, 6), 14, const_setting))
+        self.opponent_list = []
         self.opponent_list.append((RandomPlayer('rand', 7, 6), 7, random_setting))
+        self.opponent_list.append((ConstPlayer('const', 7, 6), 14, const_setting))
+        self.opponent_list.append((HorizontalPlayer('horizontal', 7, 6), 28, horizontal_setting))
         self.opponent_list.append((MinPlayer('min', 7, 6), 7, min_setting))
 
         self.game = FourInARow(7, 6, 4, None, None, 500)
 
     def add_opponent(self, new_opponent):
-        self.opponent_list.pop(0)
         self.opponent_list.append(new_opponent)
+        if sum([o[1] for o in self.opponent_list]) > self.cap:
+            self.opponent_list.pop(0)
 
     def _fit_function(self, agent):
         lost = False
@@ -166,9 +168,10 @@ class FourInARowFitFunction:
 
 if __name__ == "__main__":
     x = create_layer(None, 7 * 6)
-    w = create_layer(ReLU, 7 * 3, x, False)
-    w2 = create_layer(ReLU, 7 * 2, w, False)
-    nn = create_layer(Sigmoid, 7, w2, False)
+    w = create_layer(Sigmoid, 7 * 6 * 4, x, True)
+    w2 = create_layer(Sigmoid, 7 * 6 * 2, w, True)
+    w3 = create_layer(Sigmoid, 7 * 6 * 1, w2, True)
+    nn = create_layer(Sigmoid, 7, w3, False)
 
     ff = FourInARowFitFunction()
 
@@ -181,9 +184,9 @@ if __name__ == "__main__":
 
     gaOptimizer.init(24)
 
-    # with open('gaOptimizer2_save.pkl', 'rb') as file:
+    # with open('gaOptimizer2_fit7_lnn2_save.pkl', 'rb') as file:
     #     gaOptimizer = pickle.load(file)
-    #     ff = gaOptimizer.fitness_function
+    #     gaOptimizer.fitness_function = ff
 
     while True:
         bench = 0.0
@@ -194,20 +197,21 @@ if __name__ == "__main__":
             print("Average: " + str(gaOptimizer.average_fit[-1]))
             print("Min: " + str(gaOptimizer.min_fit[-1]))
             nn.set_weights_from_vector(gaOptimizer.fittest_chromosome[-1])
-            for j, opponent in enumerate(ff.opponent_list[:-1]):
+            bench = test_net(nn, ff.opponent_list[0][0])
+            print('Test vs opp.{0}: {1}'.format(0, bench))
+            for j, opponent in zip(range(1,4), ff.opponent_list[1:4]):
                 print('Test vs opp.{0}: {1}'.format(j, test_net(nn, opponent[0])))
-            bench = test_net(nn, ff.opponent_list[-1][0])
-            print('Test vs opp.{0}: {1}'.format(len(ff.opponent_list) - 1, bench))
         if bench > 0.9:
             print('Increasing hardness')
             x = create_layer(None, 7 * 6)
-            w = create_layer(ReLU, 7 * 3, x, False)
-            w2 = create_layer(ReLU, 7 * 2, w, False)
-            o = create_layer(Sigmoid, 7, w2, False)
+            w = create_layer(Sigmoid, 7 * 6 * 4, x, True)
+            w2 = create_layer(Sigmoid, 7 * 6 * 2, w, True)
+            w3 = create_layer(Sigmoid, 7 * 6 * 1, w2, True)
+            o = create_layer(Sigmoid, 7, w3, False)
             opponent = NNAgent('Opponent', 7, 6, o)
             opponent.nn.set_weights_from_vector(gaOptimizer.fittest_chromosome[-1])
             ff.add_opponent((opponent, 2, None))
-        np.save('ga_net_fit6.npy', gaOptimizer.fittest_chromosome[-1])
-        with open('gaOptimizer2_fit6_save.pkl', 'wb') as file:
+        np.save('ga_net_fit8_lnn4.npy', gaOptimizer.fittest_chromosome[-1])
+        with open('gaOptimizer2_fit8_lnn4_save.pkl', 'wb') as file:
             pickle.dump(gaOptimizer, file)
 

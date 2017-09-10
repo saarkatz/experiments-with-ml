@@ -21,7 +21,7 @@ class PolicyAgent:
         pass
 
     def next_turn(self, state):
-        action = self.policy.get_action(board_to_number(state))
+        action = self.policy.get_action(state)
         if self.print_action:
             print(repr(action))
         return action

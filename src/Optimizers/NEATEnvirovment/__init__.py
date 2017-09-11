@@ -83,6 +83,8 @@ class FourInARowFitFunction:
                 lost = reward == -1
                 if not lost:
                     score += 43 - result[1]
+                else:
+                    score += result[1]/43
             if opp[2]:
                 opp[2](None, opp[0], False)
         return score
@@ -248,8 +250,8 @@ class NEATSpecies:
 class NEATEnvironment:
     # Information that needs to be known by the environment of the NEAT.
     def __init__(self, population_size, input_size, output_size, initial_size_factor, min_init_size_factor,
-                 filter_percentage, stagnation_time,
-                 inter_species_crossover_chance,
+                 filter_percentage, stagnation_time, bolster_percentage, bolster_reduce_rate, minimum_bolster,
+                 interspecies_crossover_chance,
                  elitist_threshold, mutate_connections_chance, new_connection_chance, new_node_chance,
                  weight_perturb_chance, weight_soft_range, weight_perturb_range,
                  compatibility_threshold, disjoint_coeff, excess_coeff, weights_coeff,
@@ -264,9 +266,13 @@ class NEATEnvironment:
         # Parameters for population filtering
         self.filter_percentage = filter_percentage
         self.stagnation_time = stagnation_time
+        # TODO: Another options to implement the bolster is could be Geometric mean or Harmonic mean
+        self.bolster_percentage = bolster_percentage
+        self.bolster_reduce_rate = bolster_reduce_rate
+        self.minimum_bolster = minimum_bolster
 
         # Parameters for crossover
-        self.inter_species_crossover_chance = inter_species_crossover_chance
+        self.interspecies_crossover_chance = interspecies_crossover_chance
 
         # Parameters for mutations
         self.elitist_threshold = elitist_threshold
@@ -502,7 +508,7 @@ class NEATEnvironment:
             total_babies_so_far += num_babies
             for i in range(num_babies):
                 # Randomly choose if to do an inter-species crossover or regular one
-                if random.uniform() < self.inter_species_crossover_chance:
+                if random.uniform() < self.interspecies_crossover_chance:
                     # Choose two unique species from the breedable ones, at least one will differ from the current one
                     option_species = sample(breedable_species, 2)
                     other_species = option_species[0] if option_species[0] is not species else option_species[1]
@@ -517,7 +523,7 @@ class NEATEnvironment:
         species = self.species[0]
         num_babies = required_babies - total_babies_so_far
         for i in range(num_babies):
-            if len(breedable_species) > 1 and random.uniform() < self.inter_species_crossover_chance:
+            if len(breedable_species) > 1 and random.uniform() < self.interspecies_crossover_chance:
                 option_species = sample(breedable_species, 2)
                 other_species = option_species[0] if option_species[0] is not species else option_species[1]
                 pair = (random.choice(species.population), random.choice(other_species.population))
@@ -606,8 +612,9 @@ class NEATEnvironment:
             species_size = len(species.population)
             for genome in species.population:
                 genome.real_fitness = self.fit_function(genome)
-                genome.fitness = genome.real_fitness / species_size
-                total_fit += genome.fitness
+                total_fit += genome.real_fitness / species_size
+                genome.fitness = self.bolster_percentage * genome.real_fitness / species_size + \
+                                 (1 - self.bolster_percentage) * genome.real_fitness
             species.fitness = total_fit
             species.population.sort(key=lambda x: x.fitness, reverse=True)
         self.species.sort(key=lambda x: x.fitness, reverse=True)
@@ -618,7 +625,9 @@ class NEATEnvironment:
     def record_history(self):
         self.species_history.append([s.id for s in self.species])
         # self.best_genomes.append({s.id: s.best_genome().genesis().to_string() for s in self.species})
-        self.species_fit.append({s.id: s.fitness for s in self.species})
+        self.species_fit.append({s.id: {'fit': s.fitness,
+                                        'best': s.population[0].real_fitness,
+                                        'size': len(s.population)} for s in self.species})
         all_fits = [g.real_fitness for s in self.species for g in s.population]
         self.fit_history['max'].append(max(all_fits))
         self.fit_history['avg'].append(np.mean(all_fits))
@@ -636,6 +645,11 @@ class NEATEnvironment:
                 self.compatibility_threshold -= self.threshold_adjustment_param
                 if self.compatibility_threshold < self.threshold_adjustment_param:
                     self.compatibility_threshold = self.threshold_adjustment_param
+
+        if self.bolster_percentage > self.minimum_bolster:
+            self.bolster_percentage *= self.bolster_reduce_rate
+            if self.bolster_percentage < self.minimum_bolster:
+                self.bolster_percentage = self.minimum_bolster
 
     def best_species(self):
         return self.species[0]
@@ -664,86 +678,105 @@ class NEATEnvironment:
         return pickle.load(file)
 
 
+import matplotlib.pyplot as plt
 from MonteCarloTree import test_agent
 
 
-if __name__ == '__main__':
+def lerp_color_rg(num, bottom, top):
+    if num < bottom:
+        num = bottom
+    if num > top:
+        num = top
+    perc = (num - bottom) / (top - bottom)
+    red = int((1 - perc) * 255)
+    green = int(perc * 255)
+    color = '#' + hex(red)[2:] + hex(green)[2:] + '00'
+    return color
 
-    def lerp_color_rg(num, bottom, top):
-        if num < bottom:
-            num = bottom
-        if num > top:
-            num = top
-        perc = (num - bottom) / (top - bottom)
-        red = int((1 - perc) * 255)
-        green = int(perc * 255)
-        color = '#' + hex(red)[2:] + hex(green)[2:] + '00'
-        return color
 
-    def graph_genome(genome):
-        from graphviz import Digraph
+def graph_genome(genome, graph_disabled=True):
+    from graphviz import Digraph
 
-        g = Digraph('G', filename='hello.gv')
-        g.attr(rankdir='LR', size='8,8')
-        # print(g)
+    g = Digraph('G', filename='hello.gv')
+    g.attr(rankdir='LR', size='8,8')
+    # print(g)
 
-        # Cluster the inputs and the outputs
-        with g.subgraph(name='cluster_sensors') as c:
-            for n in range(-genome.sensors, 0):
-                c.node(str(n))
+    # Cluster the inputs and the outputs
+    with g.subgraph(name='cluster_sensors') as c:
+        for n in range(-genome.sensors, 0):
+            c.node(str(n))
 
-        with g.subgraph(name='cluster_outputs') as c:
-            for n in range(-genome.sensors - genome.outputs, -genome.sensors):
-                c.node(str(n))
+    with g.subgraph(name='cluster_outputs') as c:
+        for n in range(-genome.sensors - genome.outputs, -genome.sensors):
+            c.node(str(n))
 
-        # Add all the hidden nodes
-        with g.subgraph(name='cluster_hidden') as c:
-            for n in genome.hidden:
-                c.node(str(n))
+    # Add all the hidden nodes
+    with g.subgraph(name='cluster_hidden') as c:
+        for n in genome.hidden:
+            c.node(str(n))
 
-        # Add all the connections:
-        for c in genome.connections:
-            if c['dis']:
-                # continue
+    # Add all the connections:
+    for c in genome.connections:
+        if c['dis']:
+            if graph_disabled:
                 g.attr('edge', color='lightgrey')
             else:
-                color = lerp_color_rg(c['weight'], -3, 3)
-                g.attr('edge', color=color)
-            g.edge(str(c['from']), str(c['to'])) # , label=str(c['weight']))
+                continue
+        else:
+            color = lerp_color_rg(c['weight'], -3, 3)
+            g.attr('edge', color=color)
+        g.edge(str(c['from']), str(c['to']))  # , label=str(c['weight']))
 
-        g.view()
+    g.view()
 
-    with open('neat_e_2.pkl', 'rb') as file:
-        neat_e = NEATEnvironment.load(file)
-        import matplotlib.pyplot as plt
-        plt.grid(True)
-        plt.plot(neat_e.fit_history['max'])
-        plt.plot(neat_e.fit_history['avg'])
-        plt.plot(neat_e.fit_history['min'])
-        plt.xlabel('Generations')
-        plt.ylabel('Fitness')
-        plt.show()
-        plt.close()
-        plt.plot([len(s) for s in neat_e.species_history])
-        plt.show()
-        # graph_genome(neat_e.best_genome())
 
-    # neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 0.001, 5, 0.5, 0.05, 0.03, 0.9, [-2, 2],
-    #                          [-0.1, 0.1], 3, 1, 1, 0.4, 5, 0)
+def analyze_environment(env):
+    plt.grid(True)
+    plt.plot(env.fit_history['max'])
+    plt.plot(env.fit_history['avg'])
+    plt.plot(env.fit_history['min'])
+    plt.xlabel('Generations')
+    plt.ylabel('Fitness')
+    plt.show()
+
+    # plt.close()
+    plt.grid(True)
+    plt.plot([len(s) for s in env.species_history])
+    plt.xlabel('Generations')
+    plt.ylabel('Species')
+    plt.show()
+
+    plt.grid(True)
+    y = np.zeros((env.species_id, env.generation + 1))
+    for i, all_s in enumerate(env.species_fit):
+        for s in env.species_history[i]:
+            y[s, i] = all_s[s]['size']
+    plt.stackplot(list(range(env.generation + 1)), y)
+    plt.xlabel('Generations')
+    plt.ylabel('Population')
+    plt.show()
+
+if __name__ == '__main__':
+    # with open('neat_e.pkl', 'rb') as file:
+    #     neat_e = NEATEnvironment.load(file)
+
+    neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 1, 0.6, 0.01, 0.001, 5, 0.5, 0.05, 0.03, 0.9,
+                             [-2, 2], [-0.1, 0.1], 4, 1, 1, 3, 5, 0)
 
     while True:
-        # pa = NEATGraphModel(neat_e.species[0].population[0].genesis()).get_agent()
+        pa = NEATGraphModel(neat_e.best_genome().genesis()).get_agent()
 
-        # print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
+        print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
         # print('Test vs opp.const: {0}'.format(test_agent(pa, ConstPlayer('const', 7, 6))))
-        # print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6))))
-        # print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6))))
+        # print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6, True))))
+        # print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6, True))))
 
         for i in range(2):
-            # graph_genome(neat_e.best_genome())
+            analyze_environment(neat_e)
+            graph_genome(neat_e.best_genome())
             for j in range(10):
                 neat_e.breed()
                 print(neat_e.generation)
 
-            with open('neat_e_2.pkl', 'wb') as file:
+            with open('neat_e.pkl', 'wb') as file:
                 neat_e.save(file)

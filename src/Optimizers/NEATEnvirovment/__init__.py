@@ -80,7 +80,7 @@ class FourInARowFitFunction:
                     self.game.player1 = agent
                     is_second = True
                 self.game.init()
-                result = self.game.run()
+                result = self.game.run(fail_on_timeout=True)
                 reward = result[2] if result[0] == is_second else -result[2]
                 lost = reward == -1
                 if not lost:

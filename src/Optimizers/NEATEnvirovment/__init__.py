@@ -31,20 +31,6 @@ def const_setting(index, agent, before):
         agent.use_random = True
 
 
-def random_setting(index, agent, before):
-    if before:
-        agent.seed = index
-    else:
-        agent.seed = None
-
-
-def min_setting(index, agent, before):
-    if before:
-        agent.seed = index
-    else:
-        agent.seed = None
-
-
 class FourInARowFitFunction:
     instance = None
 
@@ -52,10 +38,22 @@ class FourInARowFitFunction:
         self.cap = games_cap
 
         self.opponent_list = []
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 7, random_setting))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
         self.opponent_list.append((ConstPlayer('const', 7, 6), 14, const_setting))
         self.opponent_list.append((HorizontalPlayer('horizontal', 7, 6), 28, horizontal_setting))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 7, min_setting))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
 
         self.game = FourInARow(7, 6, 4, None, None, 500)
 
@@ -89,6 +87,7 @@ class FourInARowFitFunction:
                 opp[2](None, opp[0], False)
         return score
 FourInARowFitFunction.instance = FourInARowFitFunction()
+
 
 class NEATGraph:
     def __init__(self, input_size, output_size, hidden_size):
@@ -163,6 +162,7 @@ class NEATGraph:
 
     def to_string(self):
         return str(self.input_size) + '|\nnp.' + repr(self.abj_matrix)
+
 
 class NEATGenome:
     def __init__(self, species, sensors, outputs):
@@ -239,10 +239,15 @@ class NEATSpecies:
             self.unchanged_time = 0
         self.prev_fitness = self.population[0].real_fitness
 
+    def add_genome(self, genome):
+        self.population.append(genome)
+        if not self.representative:
+            self.representative = genome.copy()
+
 
 class NEATEnvironment:
     # Information that needs to be known by the environment of the NEAT.
-    def __init__(self, population_size, input_size, output_size, initial_size_factor,
+    def __init__(self, population_size, input_size, output_size, initial_size_factor, min_init_size_factor,
                  filter_percentage, stagnation_time,
                  inter_species_crossover_chance,
                  elitist_threshold, mutate_connections_chance, new_connection_chance, new_node_chance,
@@ -254,6 +259,7 @@ class NEATEnvironment:
         self.input_size = input_size
         self.output_size = output_size
         self.initial_size_factor = initial_size_factor
+        self.min_init_size_factor = min_init_size_factor
 
         # Parameters for population filtering
         self.filter_percentage = filter_percentage
@@ -301,9 +307,11 @@ class NEATEnvironment:
         species = NEATSpecies(self)
         for i in range(self.population_size):
             genome = NEATGenome(species, self.input_size, self.output_size)
-            for i in range(random.randint(1, self.input_size * self.output_size * self.initial_size_factor)):
-                self.mutate_add_connection(genome, unique=True)
-            species.population.append(genome)
+            for j in range(random.randint(self.input_size * self.output_size * self.min_init_size_factor,
+                                          self.input_size * self.output_size * self.initial_size_factor)):
+                if not self.mutate_add_connection(genome, unique=True):
+                    print('Failed to add unique connection')
+            species.add_genome(genome)
         self.species.append(species)
         self.speciate_population()
         self.fit_population()
@@ -319,7 +327,7 @@ class NEATEnvironment:
                 else:
                     connection['weight'] = random.uniform(*self.weight_soft_range)
 
-    def mutate_add_connection(self, genome, unique=False):
+    def mutate_add_connection(self, genome, unique=False, repeat=3):
         # Input nodes should not be in the in position of a connection
         # TODO: Should output nodes be allowed in the out position of a connection?
         # TODO: Should new connections between already connected nodes be allowed? (unique=True means NO)
@@ -329,7 +337,6 @@ class NEATEnvironment:
         possible_out_nodes.extend(genome.hidden)
         in_out = (random.choice(possible_in_nodes), random.choice(possible_out_nodes))
         if unique:
-            repeat = 3
             times = 0
             is_unique = True
             for gene in genome.connections:
@@ -337,12 +344,13 @@ class NEATEnvironment:
                     is_unique = False
                     break
             while not is_unique and times < repeat:
+                is_unique = True
                 in_out = (random.choice(possible_in_nodes), random.choice(possible_out_nodes))
                 for gene in genome.connections:
                     if gene['to'] == in_out[0] and gene['from'] == in_out[1]:
                         is_unique = False
                         break
-                    times += 1
+                times += 1
             if not is_unique:
                 return False
         connection = {'to': in_out[0],
@@ -455,12 +463,18 @@ class NEATEnvironment:
                     # the father will also be inherited.
                     if father_genome.fitness == mother_genome.fitness:
                         baby_genome.connections.append(dict(father_genome.connections[i_father]))
-                    i_father += 1
+                        i_father += 1
+                    else:
+                        # In this case no new connection was added so there is no point to add the last one to the set
+                        # It can also cause the code to crush if this is the first connection
+                        # i.e. baby_genome.connections == []
+                        i_father += 1
+                        continue
             elif i_mother < len_mother:
                 # Excess connections of the mother are inherited
                 baby_genome.connections.append(dict(mother_genome.connections[i_mother]))
                 i_mother += 1
-            elif i_father < len_father and equals:
+            elif equals and i_father < len_father:
                 # Excess connections of the father are inherited only if its fitness equals that of the mother
                 baby_genome.connections.append(dict(father_genome.connections[i_father]))
                 i_father += 1
@@ -498,7 +512,7 @@ class NEATEnvironment:
                     pair = random.choice(species.population, 2)
                 baby_genome = self.crossover(pair)
                 # Add the genome to its assigned species (Might be the other species)
-                baby_genome.species.population.append(baby_genome)
+                baby_genome.species.add_genome(baby_genome)
         # The last species (Which is the most fit one) will get the rest of the required babies
         species = self.species[0]
         num_babies = required_babies - total_babies_so_far
@@ -510,7 +524,7 @@ class NEATEnvironment:
             else:
                 pair = random.choice(species.population, 2)
             baby_genome = self.crossover(pair)
-            baby_genome.species.population.append(baby_genome)
+            baby_genome.species.add_genome(baby_genome)
 
     def compatibility_distance(self, genome, other_genome):
         disjoint_count = 0
@@ -562,11 +576,11 @@ class NEATEnvironment:
             distance = self.compatibility_distance(genome, species.representative)
             if distance < self.compatibility_threshold:
                 genome.species = species
-                species.population.append(genome)
+                species.add_genome(genome)
                 return
         # Then a new species will be created for the genome and added to the environment
         new_species = NEATSpecies(self)
-        new_species.population.append(genome)
+        new_species.add_genome(genome)
         genome.species = new_species
         self.species.append(new_species)
 
@@ -650,7 +664,6 @@ class NEATEnvironment:
         return pickle.load(file)
 
 
-import time
 from MonteCarloTree import test_agent
 
 
@@ -700,7 +713,7 @@ if __name__ == '__main__':
 
         g.view()
 
-    with open('neat_e.pkl', 'rb') as file:
+    with open('neat_e_2.pkl', 'rb') as file:
         neat_e = NEATEnvironment.load(file)
         import matplotlib.pyplot as plt
         plt.grid(True)
@@ -713,10 +726,10 @@ if __name__ == '__main__':
         plt.close()
         plt.plot([len(s) for s in neat_e.species_history])
         plt.show()
-        graph_genome(neat_e.best_genome())
+        # graph_genome(neat_e.best_genome())
 
-    # neat_e = NEATEnvironment(50, 7 * 6 + 1, 7, 0.1, 0.5, 15, 0.001, 5, 0.8, 0.06, 0.03, 0.9, [-2, 2], [-0.1, 0.1],
-    #                          0.4, 1, 1, 0.4, 5, 0)
+    # neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 0.001, 5, 0.5, 0.05, 0.03, 0.9, [-2, 2],
+    #                          [-0.1, 0.1], 3, 1, 1, 0.4, 5, 0)
 
     while True:
         # pa = NEATGraphModel(neat_e.species[0].population[0].genesis()).get_agent()
@@ -732,5 +745,5 @@ if __name__ == '__main__':
                 neat_e.breed()
                 print(neat_e.generation)
 
-            with open('neat_e.pkl', 'wb') as file:
+            with open('neat_e_2.pkl', 'wb') as file:
                 neat_e.save(file)

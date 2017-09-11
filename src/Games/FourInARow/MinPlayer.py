@@ -3,18 +3,26 @@ import numpy as np
 
 
 class MinPlayer:
-    def __init__(self, name, cols, rows, seed=None):
+    def __init__(self, name, cols, rows, random_on_the_fly=False):
         self.name = name
         self.cols = cols
         self.rows = rows
-        self.seed = seed
+        self.random_on_the_fly = random_on_the_fly
         self.action = np.zeros(self.cols)
+        self.decision_index = 0
+
+        if not random_on_the_fly:
+            self.decisions = [random.randint(0, 1) for i in range(cols * rows)]
 
     def init(self):
-        random.seed(self.seed)
+        self.decision_index = 0
 
     def next_turn(self, state):
-        direction = random.randint(0, 1)
+        if self.random_on_the_fly:
+            direction = random.randint(0, 1)
+        else:
+            direction = self.decisions[self.decision_index]
+            self.decision_index += 1
         action = np.zeros(self.cols)
         min_col = (-1, 10)
         cols = range(self.cols)

@@ -224,11 +224,14 @@ class NEATSpecies:
         self.prev_fitness = 0
         self.unchanged_time = 0
         self.population = []
+        self.representative = None
 
     def best_genome(self):
         return self.population[0]
 
-    def update_stagnation(self):
+    def update_parameters(self):
+        self.representative = random.choice(self.population).copy()
+
         # TODO: Consider using the real fitness of the top member as the indication for stagnation.
         if self.population[0].real_fitness == self.prev_fitness:
             self.unchanged_time += 1
@@ -549,13 +552,13 @@ class NEATEnvironment:
 
     def speciate_genome(self, genome):
         # First the genome will be tested against it's already assigned species
-        distance = self.compatibility_distance(genome, genome.species.population[0])
+        distance = self.compatibility_distance(genome, genome.species.representative)
         if distance < self.compatibility_threshold:
             return
         # Then the genome will be tested against the rest of the species
         genome.species.population.remove(genome)
         for species in self.species:
-            distance = self.compatibility_distance(genome, species.population[0])
+            distance = self.compatibility_distance(genome, species.representative)
             if distance < self.compatibility_threshold:
                 genome.species = species
                 species.population.append(genome)
@@ -608,7 +611,8 @@ class NEATEnvironment:
 
     def update_parameters(self):
         for species in self.species:
-            species.update_stagnation()
+            species.update_parameters()
+
         # Start adjusting compatibility threshold only after some generations
         if self.threshold_adjustment_param and self.generation > 5:
             if len(self.species) > self.target_species_number:

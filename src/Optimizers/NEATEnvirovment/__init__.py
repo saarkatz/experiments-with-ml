@@ -311,7 +311,7 @@ class NEATEnvironment:
         self.update_parameters()
 
     def mutate_connections(self, genome):
-        # TODO: Should the weights of a disabled gene be mutated? I matters for the speciation
+        # TODO: Should the weights of a disabled gene be mutated? It matters for the speciation
         for connection in (g for g in genome.connections if not g['dis']):
             if random.uniform() < self.mutate_connections_chance:
                 if random.uniform() < self.weight_perturb_chance:

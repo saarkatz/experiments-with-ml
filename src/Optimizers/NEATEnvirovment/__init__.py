@@ -311,11 +311,13 @@ class NEATEnvironment:
         self.update_parameters()
 
     def mutate_connections(self, genome):
+        # TODO: Should the weights of a disabled gene be mutated? I matters for the speciation
         for connection in (g for g in genome.connections if not g['dis']):
-            if random.uniform() < self.weight_perturb_chance:
-                connection['weight'] += random.uniform(*self.weight_perturb_range)
-            else:
-                connection['weight'] = random.uniform(*self.weight_soft_range)
+            if random.uniform() < self.mutate_connections_chance:
+                if random.uniform() < self.weight_perturb_chance:
+                    connection['weight'] += random.uniform(*self.weight_perturb_range)
+                else:
+                    connection['weight'] = random.uniform(*self.weight_soft_range)
 
     def mutate_add_connection(self, genome, unique=False):
         # Input nodes should not be in the in position of a connection
@@ -393,8 +395,7 @@ class NEATEnvironment:
         genome.hidden.append(new_node)
 
     def mutate_genome(self, genome):
-        if random.uniform() < self.mutate_connections_chance:
-            self.mutate_connections(genome)
+        self.mutate_connections(genome)
         if random.uniform() < self.new_connection_chance:
             self.mutate_add_connection(genome)
         if random.uniform() < self.new_node_chance:

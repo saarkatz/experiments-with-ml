@@ -217,6 +217,13 @@ class NEATGenome:
     def genesis(self):
         return NEATGraph.from_genome(self)
 
+    # Returns true if the node is a connected node in genome
+    def is_connected(self, node):
+        for gene in self.connections:
+            if gene['to'] == node or gene['from'] == node:
+                return True
+        return False
+
 
 class NEATSpecies:
     def __init__(self, environment):
@@ -252,7 +259,7 @@ class NEATEnvironment:
     def __init__(self, population_size, input_size, output_size, initial_size_factor, min_init_size_factor,
                  filter_percentage, stagnation_time, bolster_percentage, bolster_reduce_rate, minimum_bolster,
                  interspecies_crossover_chance,
-                 elitist_threshold, mutate_connections_chance, new_connection_chance, new_node_chance,
+                 elitist_threshold, mutate_connections_chance, new_connection_chance, new_node_chance, new_input_chance,
                  weight_perturb_chance, weight_soft_range, weight_perturb_range,
                  compatibility_threshold, disjoint_coeff, excess_coeff, weights_coeff,
                  target_species_number, threshold_adjustment_param):
@@ -279,6 +286,7 @@ class NEATEnvironment:
         self.mutate_connections_chance = mutate_connections_chance
         self.new_connection_chance = new_connection_chance
         self.new_node_chance = new_node_chance
+        self.new_input_chance = new_input_chance
         self.weight_perturb_chance = weight_perturb_chance
         self.weight_soft_range = weight_soft_range
         self.weight_perturb_range = weight_perturb_range
@@ -333,6 +341,20 @@ class NEATEnvironment:
                 else:
                     connection['weight'] = random.uniform(*self.weight_soft_range)
 
+    def add_new_connection(self, genome, to_node, from_node, weight):
+        connection = {'to': to_node,
+                      'from': from_node,
+                      'weight': random.uniform(*self.weight_soft_range),
+                      'dis': False}
+        if (to_node, from_node) in self.mutations_list:
+            connection['innov'] = self.mutations_list[(to_node, from_node)]
+        else:
+            connection['innov'] = self.connection_innovation
+            self.mutations_list[(to_node, from_node)] = self.connection_innovation
+            self.connection_innovation += 1
+        genome.connections.append(connection)
+
+
     def mutate_add_connection(self, genome, unique=False, repeat=3):
         # Input nodes should not be in the in position of a connection
         # TODO: Should output nodes be allowed in the out position of a connection?
@@ -359,17 +381,7 @@ class NEATEnvironment:
                 times += 1
             if not is_unique:
                 return False
-        connection = {'to': in_out[0],
-                      'from': in_out[1],
-                      'weight': random.uniform(*self.weight_soft_range),
-                      'dis': False}
-        if in_out in self.mutations_list:
-            connection['innov'] = self.mutations_list[in_out]
-        else:
-            connection['innov'] = self.connection_innovation
-            self.mutations_list[in_out] = self.connection_innovation
-            self.connection_innovation += 1
-        genome.connections.append(connection)
+        self.add_new_connection(genome, in_out[0], in_out[1], random.uniform(*self.weight_soft_range))
         if unique:
             return True
 
@@ -386,27 +398,23 @@ class NEATEnvironment:
             new_node = self.node_innovation
             self.mutations_list[split_connection['innov']] = self.node_innovation
             self.node_innovation += 1
-        new_in_connection = {'to': split_connection['to'],
-                             'from': new_node,
-                             'weight': 1,
-                             'dis': False}
-        new_out_connection = {'to': new_node,
-                              'from': split_connection['from'],
-                              'weight': split_connection['weight'],
-                              'dis': False}
-        if repeats:
-            new_in_connection['innov'] = self.mutations_list[(new_in_connection['to'], new_in_connection['from'])]
-            new_out_connection['innov'] = self.mutations_list[(new_out_connection['to'], new_out_connection['from'])]
-        else:
-            new_out_connection['innov'] = self.connection_innovation
-            self.connection_innovation += 1
-            new_in_connection['innov'] = self.connection_innovation
-            self.connection_innovation += 1
-            self.mutations_list[(new_in_connection['to'], new_in_connection['from'])] = new_in_connection['innov']
-            self.mutations_list[(new_out_connection['to'], new_out_connection['from'])] = new_out_connection['innov']
-        genome.connections.append(new_out_connection)
-        genome.connections.append(new_in_connection)
+        self.add_new_connection(genome, split_connection['to'], new_node, 1)
         genome.hidden.append(new_node)
+
+    def mutate_add_input(self, genome):
+        initial_input_index = random.randint(self.input_size)
+        initial_input = initial_input_index - self.input_size
+        i = 0
+        is_connected = genome.is_connected(initial_input)
+        while i < self.input_size and is_connected:
+            initial_input_index = (initial_input_index + 1) % self.input_size
+            initial_input = initial_input_index - self.input_size
+            is_connected = genome.is_connected(initial_input)
+            i += 1
+        if not is_connected:
+            for i in range(-self.output_size - self.input_size, -self.input_size):
+                self.add_new_connection(genome, i, initial_input, random.uniform(*self.weight_soft_range))
+
 
     def mutate_genome(self, genome):
         self.mutate_connections(genome)
@@ -414,6 +422,8 @@ class NEATEnvironment:
             self.mutate_add_connection(genome)
         if random.uniform() < self.new_node_chance:
             self.mutate_add_node(genome)
+        if random.uniform() < self.new_input_chance:
+            self.mutate_add_input(genome)
 
     def mutate_population(self):
         self.mutations_list = {}
@@ -757,26 +767,27 @@ def analyze_environment(env):
     plt.show()
 
 if __name__ == '__main__':
-    # with open('neat_e.pkl', 'rb') as file:
-    #     neat_e = NEATEnvironment.load(file)
+    with open('neat_e_2.pkl', 'rb') as file:
+        neat_e = NEATEnvironment.load(file)
 
-    neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 1, 0.6, 0.01, 0.001, 5, 0.5, 0.05, 0.03, 0.9,
-                             [-2, 2], [-0.1, 0.1], 4, 1, 1, 3, 5, 0)
+    # neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 1, 0.6, 0.005, 0.001, 5, 0.5, 0.05, 0.03, 0.001,
+    #                          0.9, [-2, 2], [-0.1, 0.1], 4, 1, 1, 3, 5, 0)
 
     while True:
-        pa = NEATGraphModel(neat_e.best_genome().genesis()).get_agent()
+        # pa = NEATGraphModel(neat_e.best_genome().genesis()).get_agent()
 
-        print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
+        # print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
         # print('Test vs opp.const: {0}'.format(test_agent(pa, ConstPlayer('const', 7, 6))))
         # print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6, True))))
         # print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6, True))))
 
         for i in range(2):
-            analyze_environment(neat_e)
-            graph_genome(neat_e.best_genome())
+            with open('neat_e_2.pkl', 'wb') as file:
+                neat_e.save(file)
+
+            # analyze_environment(neat_e)
+            # graph_genome(neat_e.best_genome())
             for j in range(10):
                 neat_e.breed()
                 print(neat_e.generation)
 
-            with open('neat_e.pkl', 'wb') as file:
-                neat_e.save(file)

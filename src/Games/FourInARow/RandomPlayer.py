@@ -24,5 +24,5 @@ class RandomPlayer:
         else:
             current = self.decisions[self.decision_index]
             self.decision_index += 1
-
+        self.action[current] = 1
         return self.action

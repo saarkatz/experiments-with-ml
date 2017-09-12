@@ -2,93 +2,11 @@ from random import sample
 from numpy import random
 import numpy as np
 import pickle
+import threading
 
-from Optimizers.NEATEnvirovment.NEATGraphModel import NEATGraphModel
-from Games.FourInARow.RandomPlayer import RandomPlayer
-from Games.FourInARow.ConstPlayer import ConstPlayer
-from Games.FourInARow.HorizontalPlayer import HorizontalPlayer
-from Games.FourInARow.MinPlayer import MinPlayer
-from Games.FourInARow import FourInARow
 
 def sigmoid(x, a):
     return 1/(1 + np.exp(-a * x))
-
-
-def horizontal_setting(index, agent, before):
-    if before:
-        agent.use_random = False
-        agent.current = index // 2 % 7
-        agent.direction = index // 14
-    else:
-        agent.use_random = True
-
-
-def const_setting(index, agent, before):
-    if before:
-        agent.use_random = False
-        agent.current = index // 7
-    else:
-        agent.use_random = True
-
-
-class FourInARowFitFunction:
-    instance = None
-
-    def __init__(self, games_cap=50):
-        self.cap = games_cap
-
-        self.opponent_list = []
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((RandomPlayer('rand', 7, 6), 1, None))
-        self.opponent_list.append((ConstPlayer('const', 7, 6), 14, const_setting))
-        self.opponent_list.append((HorizontalPlayer('horizontal', 7, 6), 28, horizontal_setting))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-        self.opponent_list.append((MinPlayer('min', 7, 6), 1, None))
-
-        self.game = FourInARow(7, 6, 4, None, None, 500)
-
-    def add_opponent(self, new_opponent):
-        self.opponent_list.append(new_opponent)
-        if sum([o[1] for o in self.opponent_list]) > self.cap:
-            self.opponent_list.pop(0)
-
-    def fit_function(self, agent):
-        lost = False
-        score = 0
-        for opp in self.opponent_list:
-            for i in range(opp[1]):
-                if opp[2]:
-                    opp[2](i, opp[0], True)
-                if i % 2 == 0:
-                    self.game.player0 = agent
-                    self.game.player1 = opp[0]
-                    is_second = False
-                else:
-                    self.game.player0 = opp[0]
-                    self.game.player1 = agent
-                    is_second = True
-                self.game.init()
-                result = self.game.run(fail_on_timeout=True)
-                reward = result[2] if result[0] == is_second else -result[2]
-                lost = reward == -1
-                if not lost:
-                    score += 43 - result[1]
-                else:
-                    score += result[1]/43
-            if opp[2]:
-                opp[2](None, opp[0], False)
-        return score
-FourInARowFitFunction.instance = FourInARowFitFunction()
 
 
 class NEATGraph:
@@ -96,30 +14,32 @@ class NEATGraph:
         self.input_size = input_size
         self.output_size = output_size
         self.hidden_size = hidden_size
-        self.abj_matrix = None
+        self.adj_matrix = None
         self.hidden_state = np.zeros(hidden_size)
+        self.activation_function = np.tanh
 
     @classmethod
     def from_genome(cls, genome):
         graph = cls(genome.sensors, genome.outputs, len(genome.hidden))
-        graph.update_abj_matrix(genome)
+        graph.update_adj_matrix(genome)
         return graph
 
     @classmethod
     def from_string(cls, string):
-        string = string.split('|')
-        input_size = int(string[0])
-        abj_matrix = eval(string[1])
-        hidden_size = abj_matrix.shape[0] - input_size
-        output_size = abj_matrix.shape[1] - hidden_size
+        string = string.split('|||\n')
+        input_size, output_size, hidden_size = string[0].split(',')
+        input_size, output_size, hidden_size = int(input_size), int(output_size), int(hidden_size)
+        adj_matrix_s = eval(string[1])
+        adj_matrix = np.fromstring(adj_matrix_s, dtype=np.float64)
+        adj_matrix = adj_matrix.reshape((input_size + hidden_size, output_size + hidden_size))
         graph = cls(input_size, output_size, hidden_size)
-        graph.abj_matrix = abj_matrix
+        graph.adj_matrix = adj_matrix
         return graph
 
-    def update_abj_matrix(self, genome):
+    def update_adj_matrix(self, genome):
         # Create map from node id to index
         nodes_map = {g: i for i, g in enumerate(genome.hidden)}
-        self.abj_matrix = np.zeros((self.input_size + self.hidden_size, self.output_size + self.hidden_size))
+        self.adj_matrix = np.zeros((self.input_size + self.hidden_size, self.output_size + self.hidden_size))
         for connection in (g for g in genome.connections if not g['dis']):
             from_to = []
             if connection['from'] < 0:
@@ -130,22 +50,22 @@ class NEATGraph:
                 from_to.append(connection['to'] + self.input_size + self.output_size)
             else:
                 from_to.append(nodes_map[connection['to']] + self.output_size)
-            self.abj_matrix[tuple(from_to)] += connection['weight']
+            self.adj_matrix[tuple(from_to)] += connection['weight']
 
     # Return the output after n timesteps
     def timestep(self, input, n):
         for _ in range(n):
             state = np.concatenate((input, self.hidden_state))
-            result = np.dot(state, self.abj_matrix)
-            result = sigmoid(result, 4.9)  # TODO: This 4.9 here is from the NEAT paper.
+            result = np.dot(state, self.adj_matrix)
+            result = self.activation_function(result)
             self.hidden_state = result[self.output_size:]
         return result[:self.output_size]
 
     def evaluate_stable(self, input, threshold, cap=100):
         self.hidden_state = np.zeros_like(self.hidden_state)
         state = np.concatenate((input, self.hidden_state))
-        result = np.dot(state, self.abj_matrix)
-        result = sigmoid(result, 4.9)
+        result = np.dot(state, self.adj_matrix)
+        result = self.activation_function(result)
         self.hidden_state = result[self.output_size:]
         prev_result = np.zeros_like(result)
         i = 0
@@ -153,8 +73,8 @@ class NEATGraph:
             i += 1
             prev_result = result
             state = np.concatenate((input, self.hidden_state))
-            result = np.dot(state, self.abj_matrix)
-            result = sigmoid(result, 4.9)
+            result = np.dot(state, self.adj_matrix)
+            result = self.activation_function(result)
             self.hidden_state = result[self.output_size:]
         return result[:self.output_size]
 
@@ -163,7 +83,13 @@ class NEATGraph:
         return self.timestep(input, timesteps)
 
     def to_string(self):
-        return str(self.input_size) + '|\nnp.' + repr(self.abj_matrix)
+        return '{0},{1},{2}|||\n{3}'.format(self.input_size, self.output_size, self.hidden_size,
+                                            self.adj_matrix.tostring())
+
+    def copy(self):
+        new_graph = NEATGraph(self.input_size, self.output_size, self.hidden_size)
+        new_graph.adj_matrix = self.adj_matrix.copy()
+        return new_graph
 
 
 class NEATGenome:
@@ -254,6 +180,167 @@ class NEATSpecies:
             self.representative = genome.copy()
 
 
+
+
+
+from Optimizers.NEATEnvirovment.NEATGraphModel import NEATGraphModel
+from Games.FourInARow.RandomPlayer import RandomPlayer
+from Games.FourInARow.ConstPlayer import ConstPlayer
+from Games.FourInARow.HorizontalPlayer import HorizontalPlayer
+from Games.FourInARow.MinPlayer import MinPlayer
+from Games.FourInARow.Mark2 import Mark2
+from Games.FourInARow import FourInARow
+
+
+def horizontal_setting(index, agent, before):
+    if before:
+        agent.use_random = False
+        agent.current = index // 2 % 7
+        agent.direction = (index // 14) * 2 - 1
+    else:
+        agent.use_random = True
+
+
+def const_setting(index, agent, before):
+    if before:
+        agent.use_random = False
+        agent.current = index // 7
+    else:
+        agent.use_random = True
+
+
+def mk2_horizontal_setting(index, agent, before):
+    if before:
+        agent.rollout_player.use_random = False
+        agent.rollout_player.current = 3
+        if index == 0 or index == 1:
+            agent.rollout_player.direction = -1
+        else:
+            agent.rollout_player.direction = 1
+    else:
+        agent.rollout_player.use_random = True
+
+
+def mk2_const_setting(index, agent, before):
+    if before:
+        agent.rollout_player.use_random = False
+        agent.rollout_player.current = index // 7
+    else:
+        agent.rollout_player.use_random = True
+
+score_lock = threading.Lock()
+
+class GameThread(threading.Thread):
+    def __init__(self, player, score_holder, opponent, count, initialization):
+        threading.Thread.__init__(self)
+        self.player = player
+        self.score_holder = score_holder
+        self.opponent = opponent
+        self.count = count
+        self.initialization = initialization
+        self.game = FourInARow(7, 6, 4, None, None, 500)
+
+    def run(self):
+        score = 0
+        for i in range(self.count):
+            if self.initialization:
+                self.initialization(i, self.opponent, True)
+            if i % 2 == 0:
+                self.game.player0 = self.player
+                self.game.player1 = self.opponent
+                is_second = False
+            else:
+                self.game.player0 = self.opponent
+                self.game.player1 = self.player
+                is_second = True
+            self.game.init()
+            result = self.game.run(fail_on_timeout=True)
+            reward = result[2] if result[0] == is_second else -result[2]
+            lost = reward == -1
+            if not lost:
+                score += 43 - result[1]
+            else:
+                score += result[1] / 43
+        if self.initialization:
+            self.initialization(None, self.opponent, False)
+        score_lock.acquire()
+        self.score_holder[0] += score
+        score_lock.release()
+
+
+
+
+class FourInARowFitFunction:
+    instance = None
+
+    def __init__(self, games_cap=50):
+        self.cap = games_cap
+
+        self.opponent_list = []
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 2, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 2, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 2, None))
+        self.opponent_list.append((RandomPlayer('rand', 7, 6), 2, None))
+        self.opponent_list.append((ConstPlayer('const', 7, 6), 14, const_setting))
+        self.opponent_list.append((HorizontalPlayer('horizontal', 7, 6), 28, horizontal_setting))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 2, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 2, None))
+        self.opponent_list.append((MinPlayer('min', 7, 6), 2, None))
+        self.opponent_list.append((Mark2('mk2_const', 7, 6, 4, ConstPlayer('', 7, 6)), 14, mk2_const_setting))
+        self.opponent_list.append(
+            (Mark2('mk2_horizontal', 7, 6, 4, HorizontalPlayer('', 7, 6)), 4, mk2_horizontal_setting))
+        with open('best_3600.txt', 'r') as file:
+            best_3600 = NEATGraph.from_string(file.read())
+        pa = NEATGraphModel(best_3600).get_agent()
+        mk2_pa = NEATGraphModel(best_3600.copy()).get_agent()
+        self.opponent_list.append((pa, 2, None))
+        self.opponent_list.append((Mark2('best_3600_mk2', 7, 6, 4, mk2_pa), 2, None))
+        with open('best_4130.txt', 'r') as file:
+            best_4130 = NEATGraph.from_string(file.read())
+        pa_4130 = NEATGraphModel(best_4130).get_agent()
+        mk2_pa_4130 = NEATGraphModel(best_4130.copy()).get_agent()
+        self.opponent_list.append((pa_4130, 2, None))
+        self.opponent_list.append((Mark2('best_3600_mk2', 7, 6, 4, mk2_pa_4130), 2, None))
+
+        self.game = FourInARow(7, 6, 4, None, None, 500)
+
+    def add_opponent(self, new_opponent):
+        self.opponent_list.append(new_opponent)
+        if sum([o[1] for o in self.opponent_list]) > self.cap:
+            self.opponent_list.pop(0)
+
+    def fit_function(self, agent):
+        score = 0
+        for opponent, count, initialization in self.opponent_list:
+            for i in range(count):
+                if initialization:
+                    initialization(i, opponent, True)
+                if i % 2 == 0:
+                    self.game.player0 = agent
+                    self.game.player1 = opponent
+                    is_second = False
+                else:
+                    self.game.player0 = opponent
+                    self.game.player1 = agent
+                    is_second = True
+                self.game.init()
+                result = self.game.run(fail_on_timeout=True)
+                reward = result[2] if result[0] == is_second else -result[2]
+                lost = reward == -1
+                if not lost:
+                    score += 43 - result[1]
+                else:
+                    score += result[1] / 43
+            if initialization:
+                initialization(None, opponent, False)
+        return score
+FourInARowFitFunction.instance = FourInARowFitFunction()
+
+
+
+
+
+
 class NEATEnvironment:
     # Information that needs to be known by the environment of the NEAT.
     def __init__(self, population_size, input_size, output_size, initial_size_factor, min_init_size_factor,
@@ -262,7 +349,8 @@ class NEATEnvironment:
                  elitist_threshold, mutate_connections_chance, new_connection_chance, new_node_chance, new_input_chance,
                  weight_perturb_chance, weight_soft_range, weight_perturb_range,
                  compatibility_threshold, disjoint_coeff, excess_coeff, weights_coeff,
-                 target_species_number, threshold_adjustment_param):
+                 target_species_number, threshold_adjustment_param,
+                 oscillation_dump_delay, oscillation_dump_factor, oscillation_threshold):
         # Parameters for initialization
         self.population_size = population_size
         self.input_size = input_size
@@ -299,12 +387,18 @@ class NEATEnvironment:
         self.target_species_number = target_species_number
         self.threshold_adjustment_param = threshold_adjustment_param
 
+        # Parameters for dealing with oscillation
+        self.oscillation_dump_delay = oscillation_dump_delay
+        self.oscillation_dump_factor = oscillation_dump_factor
+        self.oscillation_threshold = oscillation_threshold
+
         # Members of the environment
         self.species_id = 0
         self.species = []
         self.mutations_list = {}
         self.connection_innovation = 0
         self.node_innovation = 0
+        self.oscillations_count = 0
 
         # History tracking
         self.generation = 0
@@ -399,6 +493,7 @@ class NEATEnvironment:
             self.mutations_list[split_connection['innov']] = self.node_innovation
             self.node_innovation += 1
         self.add_new_connection(genome, split_connection['to'], new_node, 1)
+        self.add_new_connection(genome, new_node, split_connection['from'], random.uniform(*self.weight_soft_range))
         genome.hidden.append(new_node)
 
     def mutate_add_input(self, genome):
@@ -414,7 +509,6 @@ class NEATEnvironment:
         if not is_connected:
             for i in range(-self.output_size - self.input_size, -self.input_size):
                 self.add_new_connection(genome, i, initial_input, random.uniform(*self.weight_soft_range))
-
 
     def mutate_genome(self, genome):
         self.mutate_connections(genome)
@@ -656,10 +750,30 @@ class NEATEnvironment:
                 if self.compatibility_threshold < self.threshold_adjustment_param:
                     self.compatibility_threshold = self.threshold_adjustment_param
 
-        if self.bolster_percentage > self.minimum_bolster:
+        if self.bolster_percentage and self.bolster_percentage > self.minimum_bolster:
             self.bolster_percentage *= self.bolster_reduce_rate
             if self.bolster_percentage < self.minimum_bolster:
                 self.bolster_percentage = self.minimum_bolster
+
+        # Start monitoring oscillations only after some generations
+        if self.generation > 5 and self.oscillation_dump_factor:
+            is_oscillating = False
+            for species in self.species:
+                if (species.id in self.species_history[-2] and
+                            np.abs(self.species_fit[-1][species.id]['size'] - self.species_fit[-2][species.id][
+                                'size']) >
+                                self.population_size * self.oscillation_threshold):
+                    is_oscillating = True
+                    break
+            if is_oscillating:
+                self.oscillations_count += 1
+            elif self.oscillations_count > 0:
+                self.oscillations_count -= 1
+            if self.oscillations_count >= self.oscillation_dump_delay:
+                self.bolster_percentage = self.oscillation_dump_factor
+                self.oscillations_count = 0
+                self.add_history('Dumping oscillations.')
+
 
     def best_species(self):
         return self.species[0]
@@ -690,6 +804,7 @@ class NEATEnvironment:
 
 import matplotlib.pyplot as plt
 from MonteCarloTree import test_agent
+from Games.FourInARow.Player import Player
 
 
 def lerp_color_rg(num, bottom, top):
@@ -708,20 +823,24 @@ def graph_genome(genome, graph_disabled=True):
     from graphviz import Digraph
 
     g = Digraph('G', filename='hello.gv')
-    g.attr(rankdir='LR', size='8,8')
+    g.attr(rankdir='LR')
+    # g.attr('edge', minlen='2', decorate='true')
     # print(g)
 
     # Cluster the inputs and the outputs
     with g.subgraph(name='cluster_sensors') as c:
+        c.attr(style='invisible')
         for n in range(-genome.sensors, 0):
             c.node(str(n))
 
     with g.subgraph(name='cluster_outputs') as c:
+        c.attr(style='invisible')
         for n in range(-genome.sensors - genome.outputs, -genome.sensors):
             c.node(str(n))
 
     # Add all the hidden nodes
     with g.subgraph(name='cluster_hidden') as c:
+        c.attr(style='invisible')
         for n in genome.hidden:
             c.node(str(n))
 
@@ -740,54 +859,104 @@ def graph_genome(genome, graph_disabled=True):
     g.view()
 
 
-def analyze_environment(env):
+def analyze_environment(env, from_gen):
+    if from_gen < 0:
+        x = list(range(from_gen % env.generation + 1, env.generation + 1))
+    else:
+        x = list(range(from_gen % env.generation, env.generation + 1))
+    # plt.subplot(3, 1, 1)
+    plt.figure('Fitness')
     plt.grid(True)
-    plt.plot(env.fit_history['max'])
-    plt.plot(env.fit_history['avg'])
-    plt.plot(env.fit_history['min'])
+    plt.plot(x, env.fit_history['max'][from_gen:])
+    plt.plot(x, env.fit_history['avg'][from_gen:])
+    plt.plot(x, env.fit_history['min'][from_gen:])
     plt.xlabel('Generations')
     plt.ylabel('Fitness')
-    plt.show()
+    plt.show(block=False)
 
     # plt.close()
+    # plt.subplot(3, 1, 2)
+    plt.figure('Species count')
     plt.grid(True)
-    plt.plot([len(s) for s in env.species_history])
+    plt.plot(x, [len(s) for s in env.species_history][from_gen:])
     plt.xlabel('Generations')
     plt.ylabel('Species')
-    plt.show()
+    plt.show(block=False)
 
+    # plt.subplot(3, 1, 3)
+    plt.figure('Species population')
     plt.grid(True)
-    y = np.zeros((env.species_id, env.generation + 1))
-    for i, all_s in enumerate(env.species_fit):
-        for s in env.species_history[i]:
+    if from_gen < 0:
+        y = np.zeros((env.species_id, -from_gen))  # env.generation + 1))
+    else:
+        y = np.zeros((env.species_id, env.generation - from_gen + 1))
+    for i, all_s in enumerate(env.species_fit[from_gen:]):
+        for s in env.species_history[i + from_gen]:
             y[s, i] = all_s[s]['size']
-    plt.stackplot(list(range(env.generation + 1)), y)
+    plt.stackplot(x, y)
     plt.xlabel('Generations')
     plt.ylabel('Population')
     plt.show()
 
 if __name__ == '__main__':
-    with open('neat_e_2.pkl', 'rb') as file:
+    with open('neat_e_tanh_2_3.pkl', 'rb') as file:
         neat_e = NEATEnvironment.load(file)
+    print('Generation: ' + str(neat_e.generation))
+    pa = NEATGraphModel(neat_e.best_genome().genesis()).get_agent()
+    pa.name = 'current_best'
+    # with open('best_4130.txt', 'w') as file:
+    #     file.write(neat_e.best_genome().genesis().to_string())
+    with open('best_3600.txt', 'r') as file:
+        best_3600 = NEATGraph.from_string(file.read())
+    best_3600_pa = NEATGraphModel(best_3600).get_agent()
+    best_3600_pa.name = 'best_3600'
+    with open('best_4130.txt', 'r') as file:
+        best_4130 = NEATGraph.from_string(file.read())
+    best_4130_pa = NEATGraphModel(best_3600).get_agent()
+    best_4130_pa.name = 'best_4130'
+    # print('Testing best_3600')
+    # print('Test vs opp.horizontal: {0}'.format(test_agent(best_3600_pa, HorizontalPlayer('horizontal', 7, 6))))
+    # print('Test vs opp.const: {0}'.format(test_agent(best_3600_pa, ConstPlayer('const', 7, 6))))
+    # print('Test vs opp.rand: {0}'.format(test_agent(best_3600_pa, RandomPlayer('rand', 7, 6, True))))
+    # print('Test vs opp.min: {0}'.format(test_agent(best_3600_pa, MinPlayer('min', 7, 6, True))))
+    # print('Test vs opp.mk2_horiz: {0}'.format(test_agent(best_3600_pa, Mark2('mk2_horiz', 7, 6, 4, HorizontalPlayer('', 7, 6)))))
+    # print('Test vs opp.mk2_const: {0}'.format(test_agent(best_3600_pa, Mark2('mk2_const', 7, 6, 4, ConstPlayer('', 7, 6)))))
+    print('Testing current best')
+    print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
+    print('Test vs opp.const: {0}'.format(test_agent(pa, ConstPlayer('const', 7, 6))))
+    print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6, True))))
+    print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6, True))))
+    print('Test vs opp.mk2_horiz: {0}'.format(test_agent(pa, Mark2('mk2_horiz', 7, 6, 4, HorizontalPlayer('', 7, 6)))))
+    print('Test vs opp.mk2_const: {0}'.format(test_agent(pa, Mark2('mk2_const', 7, 6, 4, ConstPlayer('', 7, 6)))))
+    print('Test vs best_3600: {0}'.format(test_agent(pa, best_3600_pa)))
+    print('Test vs best_3600_mk2: {0}'.format(test_agent(pa, Mark2('', 7, 6, 4, best_3600_pa))))
+    print('Test vs best_4130: {0}'.format(test_agent(pa, best_4130_pa)))
+    print('Test vs best_4130_mk2: {0}'.format(test_agent(pa, Mark2('', 7, 6, 4, best_4130_pa))))
+    analyze_environment(neat_e, -100)
+    # graph_genome(neat_e.best_genome(), True)
+    # pa.print_action = True
+    # game = FourInARow(7, 6, 4, Mark2('',7,6,4,best_3600_pa), Player('Me', 7, 6), 60000) # Mark2('mark2', 7, 6, 4, pa), 60000)
+    # game = FourInARow(7, 6, 4, pa, Mark2('',7,6,4,ConstPlayer('',7,6)), 60000)
+    # while True:
+    #     game.player1, game.player0 = game.player0, game.player1
+    #     game.init()
+    #     result = game.run()
+    #     print(result)
+    #     print(game.turn_queue)
+    #     input()
+    exit(0)
 
-    # neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 1, 0.6, 0.005, 0.001, 5, 0.5, 0.05, 0.03, 0.001,
-    #                          0.9, [-2, 2], [-0.1, 0.1], 4, 1, 1, 3, 5, 0)
+    # neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 0, 0.6, 0.01, 0.001, 5, 0.2, 0.05, 0.03, 0.001,
+    #                          0.9, [-2, 2], [-0.1, 0.1], 2, 1, 1, 3, 5, 0, 5, 0.0, 0.2)
+
+    # neat_e.compatibility_threshold = 4
+    # neat_e.add_history('Changing fit function')
 
     while True:
-        # pa = NEATGraphModel(neat_e.best_genome().genesis()).get_agent()
+        # for i in range(2):
+        with open('neat_e_tanh_2_4.pkl', 'wb') as file:
+            neat_e.save(file)
 
-        # print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
-        # print('Test vs opp.const: {0}'.format(test_agent(pa, ConstPlayer('const', 7, 6))))
-        # print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6, True))))
-        # print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6, True))))
-
-        for i in range(2):
-            with open('neat_e_2.pkl', 'wb') as file:
-                neat_e.save(file)
-
-            # analyze_environment(neat_e)
-            # graph_genome(neat_e.best_genome())
-            for j in range(10):
-                neat_e.breed()
-                print(neat_e.generation)
-
+        for j in range(10):
+            neat_e.breed()
+            print(neat_e.generation)

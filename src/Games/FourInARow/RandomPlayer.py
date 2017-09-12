@@ -24,5 +24,9 @@ class RandomPlayer:
         else:
             current = self.decisions[self.decision_index]
             self.decision_index += 1
+        i = 0
+        while i < self.cols and not state[current, -1] == 0:
+            current = (current + 1) % self.cols
+            i += 1
         self.action[current] = 1
         return self.action

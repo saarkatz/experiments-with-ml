@@ -271,7 +271,7 @@ class GameThread(threading.Thread):
 
 
 class FourInARowFitFunction:
-    instance = None
+    instances = []
 
     def __init__(self, games_cap=50):
         self.cap = games_cap
@@ -334,9 +334,22 @@ class FourInARowFitFunction:
             if initialization:
                 initialization(None, opponent, False)
         return score
-FourInARowFitFunction.instance = FourInARowFitFunction()
+FourInARowFitFunction.instances.append(FourInARowFitFunction())
+FourInARowFitFunction.instances.append(FourInARowFitFunction())
 
 
+class FitnessThread(threading.Thread):
+    def __init__(self, population, fitness_function):
+        threading.Thread.__init__(self)
+        self.population = population
+        self.fitness_function = fitness_function
+
+    def run(self):
+        for genome in self.population:
+            graph = NEATGraphModel(NEATGraph.from_genome(genome))
+            player = graph.get_agent()
+            genome.real_fitness = self.fitness_function.fit_function(player)
+            genome.fitness = genome.real_fitness / len(genome.species.population)
 
 
 
@@ -399,6 +412,7 @@ class NEATEnvironment:
         self.connection_innovation = 0
         self.node_innovation = 0
         self.oscillations_count = 0
+        self.threads = 2
 
         # History tracking
         self.generation = 0
@@ -708,20 +722,32 @@ class NEATEnvironment:
     def fit_function(self, genome):
         graph = NEATGraphModel(NEATGraph.from_genome(genome))
         player = graph.get_agent()
-        return FourInARowFitFunction.instance.fit_function(player)
+        return FourInARowFitFunction.instances[0].fit_function(player)
 
     def fit_population(self):
+        population = [g for s in self.species for g in s.population]
+        threads = []
+        for i in range(self.threads):
+            thread = FitnessThread(population[i::self.threads], FourInARowFitFunction.instances[i])
+            thread.start()
+            threads.append(thread)
+        for t in threads:
+            t.join()
         for species in self.species:
-            total_fit = 0
-            species_size = len(species.population)
-            for genome in species.population:
-                genome.real_fitness = self.fit_function(genome)
-                total_fit += genome.real_fitness / species_size
-                genome.fitness = self.bolster_percentage * genome.real_fitness / species_size + \
-                                 (1 - self.bolster_percentage) * genome.real_fitness
-            species.fitness = total_fit
+            species.fitness = sum((g.fitness for g in species.population))
             species.population.sort(key=lambda x: x.fitness, reverse=True)
         self.species.sort(key=lambda x: x.fitness, reverse=True)
+        # for species in self.species:
+        #     total_fit = 0
+        #     species_size = len(species.population)
+        #     for genome in species.population:
+        #         genome.real_fitness = self.fit_function(genome)
+        #         total_fit += genome.real_fitness / species_size
+        #         genome.fitness = self.bolster_percentage * genome.real_fitness / species_size + \
+        #                          (1 - self.bolster_percentage) * genome.real_fitness
+        #     species.fitness = total_fit
+        #     species.population.sort(key=lambda x: x.fitness, reverse=True)
+        # self.species.sort(key=lambda x: x.fitness, reverse=True)
 
     def add_history(self, tag):
         self.history.append((self.generation, tag))
@@ -899,13 +925,13 @@ def analyze_environment(env, from_gen):
     plt.show()
 
 if __name__ == '__main__':
-    with open('neat_e_tanh_2_3.pkl', 'rb') as file:
+    with open('neat_e_tanh_2_5.pkl', 'rb') as file:
         neat_e = NEATEnvironment.load(file)
     print('Generation: ' + str(neat_e.generation))
     pa = NEATGraphModel(neat_e.best_genome().genesis()).get_agent()
     pa.name = 'current_best'
-    # with open('best_4130.txt', 'w') as file:
-    #     file.write(neat_e.best_genome().genesis().to_string())
+    with open('best_4130.txt', 'w') as file:
+        file.write(neat_e.best_genome().genesis().to_string())
     with open('best_3600.txt', 'r') as file:
         best_3600 = NEATGraph.from_string(file.read())
     best_3600_pa = NEATGraphModel(best_3600).get_agent()
@@ -921,40 +947,41 @@ if __name__ == '__main__':
     # print('Test vs opp.min: {0}'.format(test_agent(best_3600_pa, MinPlayer('min', 7, 6, True))))
     # print('Test vs opp.mk2_horiz: {0}'.format(test_agent(best_3600_pa, Mark2('mk2_horiz', 7, 6, 4, HorizontalPlayer('', 7, 6)))))
     # print('Test vs opp.mk2_const: {0}'.format(test_agent(best_3600_pa, Mark2('mk2_const', 7, 6, 4, ConstPlayer('', 7, 6)))))
-    print('Testing current best')
-    print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
-    print('Test vs opp.const: {0}'.format(test_agent(pa, ConstPlayer('const', 7, 6))))
-    print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6, True))))
-    print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6, True))))
-    print('Test vs opp.mk2_horiz: {0}'.format(test_agent(pa, Mark2('mk2_horiz', 7, 6, 4, HorizontalPlayer('', 7, 6)))))
-    print('Test vs opp.mk2_const: {0}'.format(test_agent(pa, Mark2('mk2_const', 7, 6, 4, ConstPlayer('', 7, 6)))))
-    print('Test vs best_3600: {0}'.format(test_agent(pa, best_3600_pa)))
-    print('Test vs best_3600_mk2: {0}'.format(test_agent(pa, Mark2('', 7, 6, 4, best_3600_pa))))
-    print('Test vs best_4130: {0}'.format(test_agent(pa, best_4130_pa)))
-    print('Test vs best_4130_mk2: {0}'.format(test_agent(pa, Mark2('', 7, 6, 4, best_4130_pa))))
-    analyze_environment(neat_e, -100)
+    # print('Testing current best')
+    # print('Test vs opp.horizontal: {0}'.format(test_agent(pa, HorizontalPlayer('horizontal', 7, 6))))
+    # print('Test vs opp.const: {0}'.format(test_agent(pa, ConstPlayer('const', 7, 6))))
+    # print('Test vs opp.rand: {0}'.format(test_agent(pa, RandomPlayer('rand', 7, 6, True))))
+    # print('Test vs opp.min: {0}'.format(test_agent(pa, MinPlayer('min', 7, 6, True))))
+    # print('Test vs opp.mk2_horiz: {0}'.format(test_agent(pa, Mark2('mk2_horiz', 7, 6, 4, HorizontalPlayer('', 7, 6)))))
+    # print('Test vs opp.mk2_const: {0}'.format(test_agent(pa, Mark2('mk2_const', 7, 6, 4, ConstPlayer('', 7, 6)))))
+    # print('Test vs best_3600: {0}'.format(test_agent(pa, best_3600_pa)))
+    # print('Test vs best_3600_mk2: {0}'.format(test_agent(pa, Mark2('', 7, 6, 4, best_3600_pa))))
+    # print('Test vs best_4130: {0}'.format(test_agent(pa, best_4130_pa)))
+    # print('Test vs best_4130_mk2: {0}'.format(test_agent(pa, Mark2('', 7, 6, 4, best_4130_pa))))
+    # analyze_environment(neat_e, -800)
     # graph_genome(neat_e.best_genome(), True)
-    # pa.print_action = True
-    # game = FourInARow(7, 6, 4, Mark2('',7,6,4,best_3600_pa), Player('Me', 7, 6), 60000) # Mark2('mark2', 7, 6, 4, pa), 60000)
+    pa.print_action = True
+    game = FourInARow(7, 6, 4, pa, Player('Me', 7, 6), 60000)  # Mark2('mark2', 7, 6, 4, pa), 60000)
     # game = FourInARow(7, 6, 4, pa, Mark2('',7,6,4,ConstPlayer('',7,6)), 60000)
-    # while True:
-    #     game.player1, game.player0 = game.player0, game.player1
-    #     game.init()
-    #     result = game.run()
-    #     print(result)
-    #     print(game.turn_queue)
-    #     input()
+    while True:
+        game.player1, game.player0 = game.player0, game.player1
+        game.init()
+        result = game.run()
+        print(result)
+        print(game.turn_queue)
+        input()
     exit(0)
 
     # neat_e = NEATEnvironment(150, 7 * 6 + 1, 7, 0.1, 0.05, 0.5, 15, 0, 0.6, 0.01, 0.001, 5, 0.2, 0.05, 0.03, 0.001,
     #                          0.9, [-2, 2], [-0.1, 0.1], 2, 1, 1, 3, 5, 0, 5, 0.0, 0.2)
 
     # neat_e.compatibility_threshold = 4
-    # neat_e.add_history('Changing fit function')
+    neat_e.add_history('Changing to back to single-thread')
+    neat_e.threads = 1
 
     while True:
         # for i in range(2):
-        with open('neat_e_tanh_2_4.pkl', 'wb') as file:
+        with open('neat_e_tanh_2_6.pkl', 'wb') as file:
             neat_e.save(file)
 
         for j in range(10):

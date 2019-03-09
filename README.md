@@ -28,8 +28,8 @@ We probably will enhance and normalize the API.
 We also consider trying a different approach such as Deep Q-Learning.
 
 ## Attempts 2 through 5
-These include genetic algorithm (GA), another implementation of GA, monte-carlo tree search (MCTS, albeit not a very good one) and NeuroEvolution of Augmenting Topologies genetic algorithm ([NEAT](http://nn.cs.utexas.edu/?neat), Sort of), all of which require some polish (functional-wise and API-wise).
-Details are to be written.
+These include genetic algorithm (GA), another implementation of GA, monte-carlo tree search (MCTS, albeit not a very good one) and NeuroEvolution of Augmenting Topologies genetic algorithm ([NEAT](http://nn.cs.utexas.edu/?neat), sort of), all of which require some polish (functional-wise and API-wise).
+~~Details are to be written.~~ Details will not be provided on these attemps.
 
 ### Ideas
 1. Minimax approach with NN as the policies for action selection and board evaluation (i.e. choosing which moves to try and evaluating the them), something similar to AlphaGo's approach.
